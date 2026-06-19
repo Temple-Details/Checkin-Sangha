@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -128,6 +129,31 @@
       text-align: center; color: var(--text-2);
       font-size: 14px; padding: 48px 20px; line-height: 1.8;
     }
+    .btn-add-new {
+      display: block; width: calc(100% - 32px); margin: 0 auto 16px;
+      background: white; border: 2px dashed #6366f1;
+      color: #6366f1; border-radius: 14px; padding: 16px;
+      font-family: 'Sarabun', sans-serif; font-size: 16px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s; text-align: center;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.08);
+    }
+    .btn-add-new:hover { background: #f0f0ff; }
+    .btn-add-new-small {
+      display: block; text-align: center; margin: 8px auto 20px;
+      color: #94a3b8; font-size: 13px; cursor: pointer;
+      font-family: 'Sarabun', sans-serif; background: none; border: none;
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    .btn-add-new-small:hover { color: #6366f1; }
+    .modal-input-group { text-align: left; margin-bottom: 12px; }
+    .modal-input-group label { font-size: 12px; color: var(--text-2); display: block; margin-bottom: 4px; }
+    .modal-input-group input {
+      width: 100%; border: 1.5px solid var(--border-2); border-radius: 10px;
+      padding: 12px 14px; font-family: 'Sarabun', sans-serif; font-size: 15px;
+      color: var(--text); outline: none; letter-spacing: 0; text-align: left;
+      transition: border-color 0.2s; -webkit-appearance: none;
+    }
+    .modal-input-group input:focus { border-color: var(--blue); }
 
     /* card */
     .card {
@@ -456,6 +482,10 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export Excel
     </button>
+    <button class="export-btn" onclick="showQR()" style="background:#7c3aed;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="6" y="6" width="1" height="1" fill="currentColor"/><rect x="17" y="6" width="1" height="1" fill="currentColor"/><rect x="6" y="17" width="1" height="1" fill="currentColor"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/></svg>
+      QR Code
+    </button>
   </div>
 
   <div style="padding: 8px 16px 0;">
@@ -475,6 +505,50 @@
 
 </div><!-- end page-wrap -->
 <div class="toast" id="toast"></div>
+
+<!-- Add New Modal -->
+<div class="overlay" id="addNewOverlay">
+  <div class="modal" style="max-width:340px;text-align:left;">
+    <div class="modal-icon" style="margin:0 auto 16px;">➕</div>
+    <h2 style="text-align:center;margin-bottom:4px;">เพิ่มชื่อเข้าร่วม</h2>
+    <p style="text-align:center;margin-bottom:16px;">กรอกข้อมูลเพื่อบันทึกการเข้าร่วมประชุม</p>
+    <div class="modal-input-group">
+      <label>ชื่อ-ฉายา (ไทย) *</label>
+      <input type="text" id="newNameTh" placeholder="เช่น พระมหาสมชาย ใจดี">
+    </div>
+    <div class="modal-input-group">
+      <label>ชื่อ (อังกฤษ)</label>
+      <input type="text" id="newNameEn" placeholder="เช่น Phramaha Somchai Jaidee">
+    </div>
+    <div class="modal-input-group">
+      <label>สมณศักดิ์</label>
+      <input type="text" id="newRank" placeholder="เช่น พระครูวิเทศ...">
+    </div>
+    <div class="modal-input-group">
+      <label>วัด</label>
+      <input type="text" id="newTemple" placeholder="เช่น วัดไทยเบอร์ลิน">
+    </div>
+    <div class="modal-input-group" style="margin-bottom:20px;">
+      <label>ประเทศ</label>
+      <input type="text" id="newCountry" placeholder="เช่น เยอรมนี">
+    </div>
+    <div class="modal-err" id="addNewErr"></div>
+    <button class="modal-btn" onclick="submitAddNew()">บันทึกและเช็คอิน</button>
+    <button class="modal-cancel" onclick="closeAddNew()">ยกเลิก</button>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div class="overlay" id="qrOverlay" onclick="if(event.target===this)closeQR()">
+  <div class="modal" style="max-width:340px;">
+    <div class="modal-icon" style="background:#f5f3ff;">🔗</div>
+    <h2>QR Code เช็คชื่อ</h2>
+    <p style="font-size:12px;">สแกนเพื่อเข้าสู่หน้าเช็คชื่อ</p>
+    <img id="qrImg" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https://temple-details.github.io/Checkin-Sangha/" style="margin:0 auto 16px;display:block;border-radius:8px;width:240px;height:240px;">
+    <button class="modal-btn" onclick="downloadQR()">⬇ ดาวน์โหลด QR Code</button>
+    <button class="modal-cancel" onclick="closeQR()">ปิด</button>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL = 'https://xmfggihlxuzuwvgvqdmp.supabase.co'
@@ -507,7 +581,7 @@ async function init() {
   try {
     loadSheet()
     await loadCheckins()
-    document.getElementById('results').innerHTML=`<div class="hint"><div class="hint-icon">🔍</div>พิมพ์ชื่อ ฉายา วัด หรือประเทศเพื่อค้นหา</div>`
+    renderResults([], false)
   } catch {
     document.getElementById('results').innerHTML=`<div class="hint"><div class="hint-icon">⚠️</div>ไม่สามารถโหลดข้อมูลได้<br>กรุณาตรวจสอบการเชื่อมต่อ</div>`
   }
@@ -521,9 +595,42 @@ function search(q){
   return allMonks.filter(m=>m.name_th.toLowerCase().includes(lq)||m.name_en.toLowerCase().includes(lq)||m.rank.toLowerCase().includes(lq)||m.temple.toLowerCase().includes(lq)||m.country.toLowerCase().includes(lq))
 }
 
-function renderResults(monks){
+function renderResults(monks, hasQuery){
   const el=document.getElementById('results')
-  if(!monks.length){el.innerHTML='<div class="no-result">🔎 ไม่พบชื่อที่ค้นหา<br><span style="font-size:12px;color:#cbd5e1">ลองพิมพ์ฉายา วัด หรือประเทศ</span></div>';return}
+  const addBtn=`<button class="btn-add-new" onclick="openAddNew()">+ ไม่พบชื่อในรายการ? เพิ่มชื่อใหม่</button>`
+  if(hasQuery && !monks.length){
+    el.innerHTML=`
+      <div style="text-align:center;padding:32px 20px 12px">
+        <div style="font-size:36px;margin-bottom:8px">🔎</div>
+        <div style="font-size:16px;font-weight:700;color:#334155;margin-bottom:4px">ไม่พบชื่อที่ค้นหา</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:20px">ลองพิมพ์ฉายา ชื่อวัด หรือประเทศ</div>
+      </div>
+      ${addBtn}`
+    return
+  }
+  if(!hasQuery){
+    el.innerHTML=`
+      <div style="text-align:center;padding:28px 20px 0">
+        <div style="font-size:13px;font-weight:600;color:#64748b;margin-bottom:20px;letter-spacing:0.3px">วิธีเช็คชื่อเข้าร่วมประชุม</div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:320px;margin:0 auto 24px;text-align:left">
+          <div style="display:flex;align-items:center;gap:12px;background:#f8fafc;border-radius:12px;padding:12px 14px">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--blue);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+            <div style="font-size:14px;color:#334155">พิมพ์ชื่อหรือฉายาในช่องค้นหาด้านบน</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;background:#f8fafc;border-radius:12px;padding:12px 14px">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--blue);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+            <div style="font-size:14px;color:#334155">กดปุ่ม "ลงทะเบียน" ที่ชื่อของท่าน</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;background:#f8fafc;border-radius:12px;padding:12px 14px">
+            <div style="width:28px;height:28px;border-radius:50%;background:#10b981;color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</div>
+            <div style="font-size:14px;color:#334155">ระบบบันทึกการเข้าร่วมอัตโนมัติ</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#cbd5e1;margin-bottom:10px">— หรือ —</div>
+      </div>
+      ${addBtn}`
+    return
+  }
   el.innerHTML=monks.map(m=>{
     const checked=checkedInToday.has(m.name_th)
     return `<div class="card">
@@ -553,7 +660,7 @@ async function checkIn(id,btn){
   const{error}=await db.from('checkins').insert({name_th:monk.name_th,name_en:monk.name_en,rank:monk.rank,temple:monk.temple,country:monk.country,date:today})
   if(error){btn.disabled=false;btn.textContent='ลงทะเบียน เข้าร่วมประชุม · '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short'});showToast(error.code==='23505'?'เช็คอินชื่อนี้ไปแล้ววันนี้':'เกิดข้อผิดพลาด กรุณาลองใหม่');return}
   checkedInToday.add(monk.name_th); showToast('เช็คอินสำเร็จแล้ว ✓')
-  renderResults(search(document.getElementById('searchInput').value))
+  const _q=document.getElementById('searchInput').value; renderResults(search(_q),!!_q.trim())
 }
 
 function clearSearch(){
@@ -566,8 +673,7 @@ function clearSearch(){
 document.getElementById('searchInput').addEventListener('input',e=>{
   const q=e.target.value
   document.getElementById('clearBtn').style.display=q?'block':'none'
-  if(!q.trim()){document.getElementById('results').innerHTML=`<div class="hint"><div class="hint-icon">🔍</div>พิมพ์ชื่อ ฉายา วัด หรือประเทศเพื่อค้นหา</div>`;return}
-  renderResults(search(q))
+  renderResults(search(q), !!q.trim())
 })
 
 function openPassModal(){const i=document.getElementById('passInput');i.value='';i.setAttribute('autocomplete','new-password');document.getElementById('passErr').textContent='';document.getElementById('passOverlay').classList.add('show');setTimeout(()=>i.focus(),150)}
@@ -734,6 +840,44 @@ async function exportExcel(){
   a.download=`รายงานเช็คชื่อ_${label}.xlsx`
   a.click()
   showToast('Export สำเร็จแล้ว ✓')
+}
+
+function openAddNew(){
+  ['newNameTh','newNameEn','newRank','newTemple','newCountry'].forEach(id=>document.getElementById(id).value='')
+  document.getElementById('addNewErr').textContent=''
+  document.getElementById('addNewOverlay').classList.add('show')
+  setTimeout(()=>document.getElementById('newNameTh').focus(),150)
+}
+function closeAddNew(){ document.getElementById('addNewOverlay').classList.remove('show') }
+
+async function submitAddNew(){
+  const name_th=document.getElementById('newNameTh').value.trim()
+  if(!name_th){document.getElementById('addNewErr').textContent='กรุณากรอกชื่อ-ฉายา';return}
+  if(checkedInToday.has(name_th)){document.getElementById('addNewErr').textContent='เช็คอินชื่อนี้ไปแล้ววันนี้';return}
+  const name_en=document.getElementById('newNameEn').value.trim()
+  const rank=document.getElementById('newRank').value.trim()
+  const temple=document.getElementById('newTemple').value.trim()
+  const country=document.getElementById('newCountry').value.trim()
+  const btn=document.querySelector('#addNewOverlay .modal-btn')
+  btn.disabled=true; btn.textContent='กำลังบันทึก...'
+  const{error}=await db.from('checkins').insert({name_th,name_en,rank,temple,country,date:today,extra:true})
+  btn.disabled=false; btn.textContent='บันทึกและเช็คอิน'
+  if(error){document.getElementById('addNewErr').textContent=error.code==='23505'?'เช็คอินชื่อนี้ไปแล้ววันนี้':'เกิดข้อผิดพลาด กรุณาลองใหม่';return}
+  checkedInToday.add(name_th)
+  closeAddNew()
+  showToast('เพิ่มและเช็คอินสำเร็จ ✓')
+  const _q2=document.getElementById('searchInput').value; renderResults(search(_q2),!!_q2.trim())
+}
+
+function showQR(){ document.getElementById('qrOverlay').classList.add('show') }
+function closeQR(){ document.getElementById('qrOverlay').classList.remove('show') }
+async function downloadQR(){
+  const res=await fetch('https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=https://temple-details.github.io/Checkin-Sangha/')
+  const blob=await res.blob()
+  const a=document.createElement('a')
+  a.download='QR-เช็คชื่อประชุม.png'
+  a.href=URL.createObjectURL(blob)
+  a.click()
 }
 
 function showToast(msg){
