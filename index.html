@@ -573,8 +573,17 @@ function loadSheet() {
 
 
 async function loadCheckins() {
-  const {data}=await db.from('checkins').select('name_th').eq('date',today)
-  if(data) data.forEach(r=>checkedInToday.add(r.name_th))
+  const {data}=await db.from('checkins').select('name_th,name_en,rank,temple,country').eq('date',today)
+  if(data){
+    const existingNames=new Set(allMonks.map(m=>m.name_th))
+    data.forEach(r=>{
+      checkedInToday.add(r.name_th)
+      if(!existingNames.has(r.name_th)){
+        allMonks.push({id:Date.now()+Math.random(),name_th:r.name_th,name_en:r.name_en||'',rank:r.rank||'',temple:r.temple||'',country:r.country||''})
+        existingNames.add(r.name_th)
+      }
+    })
+  }
 }
 
 async function init() {
@@ -768,6 +777,8 @@ async function deleteCheckin(id){
   if(error){showToast('เกิดข้อผิดพลาด ลบไม่สำเร็จ');return}
   showToast('ลบรายการแล้ว')
   checkedInToday.delete(row.name_th)
+  const inOriginal=MONKS_DATA.some(m=>m.name_th===row.name_th)
+  if(!inOriginal){ const idx=allMonks.findIndex(m=>m.name_th===row.name_th); if(idx>-1) allMonks.splice(idx,1) }
   await loadAdmin()
 }
 
@@ -864,6 +875,7 @@ async function submitAddNew(){
   btn.disabled=false; btn.textContent='บันทึกและเช็คอิน'
   if(error){document.getElementById('addNewErr').textContent=error.code==='23505'?'เช็คอินชื่อนี้ไปแล้ววันนี้':'เกิดข้อผิดพลาด กรุณาลองใหม่';return}
   checkedInToday.add(name_th)
+  allMonks.push({id: Date.now(), name_th, name_en, rank, temple, country})
   closeAddNew()
   showToast('เพิ่มและเช็คอินสำเร็จ ✓')
   const _q2=document.getElementById('searchInput').value; renderResults(search(_q2),!!_q2.trim())
