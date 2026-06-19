@@ -860,7 +860,7 @@ async function submitAddNew(){
   const country=document.getElementById('newCountry').value.trim()
   const btn=document.querySelector('#addNewOverlay .modal-btn')
   btn.disabled=true; btn.textContent='กำลังบันทึก...'
-  const{error}=await db.from('checkins').insert({name_th,name_en,rank,temple,country,date:today,extra:true})
+  const{error}=await db.from('checkins').insert({name_th,name_en,rank,temple,country,date:today})
   btn.disabled=false; btn.textContent='บันทึกและเช็คอิน'
   if(error){document.getElementById('addNewErr').textContent=error.code==='23505'?'เช็คอินชื่อนี้ไปแล้ววันนี้':'เกิดข้อผิดพลาด กรุณาลองใหม่';return}
   checkedInToday.add(name_th)
