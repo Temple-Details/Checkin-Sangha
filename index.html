@@ -509,32 +509,44 @@
 <!-- Add New Modal -->
 <div class="overlay" id="addNewOverlay">
   <div class="modal" style="max-width:340px;text-align:left;">
-    <div class="modal-icon" style="margin:0 auto 16px;">➕</div>
-    <h2 style="text-align:center;margin-bottom:4px;">เพิ่มชื่อเข้าร่วม</h2>
-    <p style="text-align:center;margin-bottom:16px;">กรอกข้อมูลเพื่อบันทึกการเข้าร่วมประชุม</p>
-    <div class="modal-input-group">
-      <label>ชื่อ-ฉายา (ไทย) *</label>
-      <input type="text" id="newNameTh" placeholder="เช่น พระมหาสมชาย ใจดี">
+    <!-- หน้ากรอกข้อมูล -->
+    <div id="addNewForm">
+      <div class="modal-icon" style="margin:0 auto 16px;">➕</div>
+      <h2 style="text-align:center;margin-bottom:4px;">เพิ่มชื่อเข้าร่วม</h2>
+      <p style="text-align:center;margin-bottom:16px;">กรอกข้อมูลเพื่อบันทึกการเข้าร่วมประชุม</p>
+      <div class="modal-input-group">
+        <label>ชื่อ-ฉายา (ไทย) *</label>
+        <input type="text" id="newNameTh" placeholder="เช่น พระมหาสมชาย ใจดี">
+      </div>
+      <div class="modal-input-group">
+        <label>ชื่อ (อังกฤษ)</label>
+        <input type="text" id="newNameEn" placeholder="เช่น Phramaha Somchai Jaidee">
+      </div>
+      <div class="modal-input-group">
+        <label>สมณศักดิ์</label>
+        <input type="text" id="newRank" placeholder="เช่น พระครูวิเทศ...">
+      </div>
+      <div class="modal-input-group">
+        <label>วัด</label>
+        <input type="text" id="newTemple" placeholder="เช่น วัดไทยเบอร์ลิน">
+      </div>
+      <div class="modal-input-group" style="margin-bottom:20px;">
+        <label>ประเทศ</label>
+        <input type="text" id="newCountry" placeholder="เช่น เยอรมนี">
+      </div>
+      <div class="modal-err" id="addNewErr"></div>
+      <button class="modal-btn" onclick="submitAddNew()">บันทึกและเช็คอิน</button>
+      <button class="modal-cancel" onclick="closeAddNew()">ยกเลิก</button>
     </div>
-    <div class="modal-input-group">
-      <label>ชื่อ (อังกฤษ)</label>
-      <input type="text" id="newNameEn" placeholder="เช่น Phramaha Somchai Jaidee">
+    <!-- หน้ายืนยัน -->
+    <div id="addNewConfirm" style="display:none;text-align:center;">
+      <div class="modal-icon" style="margin:0 auto 16px;">✅</div>
+      <h2 style="margin-bottom:4px;">ตรวจสอบข้อมูล</h2>
+      <p style="margin-bottom:16px;font-size:13px;color:#64748b;">ข้อมูลถูกต้องหรือไม่?</p>
+      <div id="addNewSummary" style="background:#f8fafc;border-radius:12px;padding:14px 16px;text-align:left;margin-bottom:20px;line-height:2;font-size:14px;"></div>
+      <button class="modal-btn" onclick="confirmAddNew()">ยืนยัน บันทึก</button>
+      <button class="modal-cancel" onclick="backToForm()">← แก้ไขข้อมูล</button>
     </div>
-    <div class="modal-input-group">
-      <label>สมณศักดิ์</label>
-      <input type="text" id="newRank" placeholder="เช่น พระครูวิเทศ...">
-    </div>
-    <div class="modal-input-group">
-      <label>วัด</label>
-      <input type="text" id="newTemple" placeholder="เช่น วัดไทยเบอร์ลิน">
-    </div>
-    <div class="modal-input-group" style="margin-bottom:20px;">
-      <label>ประเทศ</label>
-      <input type="text" id="newCountry" placeholder="เช่น เยอรมนี">
-    </div>
-    <div class="modal-err" id="addNewErr"></div>
-    <button class="modal-btn" onclick="submitAddNew()">บันทึกและเช็คอิน</button>
-    <button class="modal-cancel" onclick="closeAddNew()">ยกเลิก</button>
   </div>
 </div>
 
@@ -863,23 +875,46 @@ function openAddNew(){
 }
 function closeAddNew(){ document.getElementById('addNewOverlay').classList.remove('show') }
 
-async function submitAddNew(){
+let _pendingNew={}
+function submitAddNew(){
   const name_th=document.getElementById('newNameTh').value.trim()
   if(!name_th){document.getElementById('addNewErr').textContent='กรุณากรอกชื่อ-ฉายา';return}
   if(checkedInToday.has(name_th)){document.getElementById('addNewErr').textContent='เช็คอินชื่อนี้ไปแล้ววันนี้';return}
-  const name_en=document.getElementById('newNameEn').value.trim()
-  const rank=document.getElementById('newRank').value.trim()
-  const temple=document.getElementById('newTemple').value.trim()
-  const country=document.getElementById('newCountry').value.trim()
-  const summary=[`ชื่อ: ${name_th}`,name_en?`ชื่ออังกฤษ: ${name_en}`:'',rank?`สมณศักดิ์: ${rank}`:'',temple?`วัด: ${temple}`:'',country?`ประเทศ: ${country}`:''].filter(Boolean).join('\n')
-  if(!confirm(`ตรวจสอบข้อมูลก่อนบันทึก\n\n${summary}\n\nยืนยันใช่หรือไม่?`)) return
-  const btn=document.querySelector('#addNewOverlay .modal-btn')
+  _pendingNew={
+    name_th,
+    name_en:document.getElementById('newNameEn').value.trim(),
+    rank:document.getElementById('newRank').value.trim(),
+    temple:document.getElementById('newTemple').value.trim(),
+    country:document.getElementById('newCountry').value.trim()
+  }
+  const rows=[
+    ['ชื่อ-ฉายา',_pendingNew.name_th],
+    _pendingNew.name_en?['ชื่ออังกฤษ',_pendingNew.name_en]:null,
+    _pendingNew.rank?['สมณศักดิ์',_pendingNew.rank]:null,
+    _pendingNew.temple?['วัด',_pendingNew.temple]:null,
+    _pendingNew.country?['ประเทศ',_pendingNew.country]:null,
+  ].filter(Boolean)
+  document.getElementById('addNewSummary').innerHTML=rows.map(([k,v])=>`<div><span style="color:#94a3b8;font-size:12px">${k}</span><br><strong>${v}</strong></div>`).join('')
+  document.getElementById('addNewForm').style.display='none'
+  document.getElementById('addNewConfirm').style.display='block'
+}
+function backToForm(){
+  document.getElementById('addNewConfirm').style.display='none'
+  document.getElementById('addNewForm').style.display='block'
+}
+async function confirmAddNew(){
+  const{name_th,name_en,rank,temple,country}=_pendingNew
+  const btn=document.querySelector('#addNewConfirm .modal-btn')
   btn.disabled=true; btn.textContent='กำลังบันทึก...'
   const{error}=await db.from('checkins').insert({name_th,name_en,rank,temple,country,date:today})
-  btn.disabled=false; btn.textContent='บันทึกและเช็คอิน'
-  if(error){document.getElementById('addNewErr').textContent=error.code==='23505'?'เช็คอินชื่อนี้ไปแล้ววันนี้':'เกิดข้อผิดพลาด กรุณาลองใหม่';return}
+  btn.disabled=false; btn.textContent='ยืนยัน บันทึก'
+  if(error){
+    backToForm()
+    document.getElementById('addNewErr').textContent=error.code==='23505'?'เช็คอินชื่อนี้ไปแล้ววันนี้':'เกิดข้อผิดพลาด กรุณาลองใหม่'
+    return
+  }
   checkedInToday.add(name_th)
-  allMonks.push({id: Date.now(), name_th, name_en, rank, temple, country})
+  allMonks.push({id:Date.now(),name_th,name_en,rank,temple,country})
   closeAddNew()
   showToast('เพิ่มและเช็คอินสำเร็จ ✓')
   const _q2=document.getElementById('searchInput').value; renderResults(search(_q2),!!_q2.trim())
