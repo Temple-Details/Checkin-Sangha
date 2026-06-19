@@ -871,6 +871,8 @@ async function submitAddNew(){
   const rank=document.getElementById('newRank').value.trim()
   const temple=document.getElementById('newTemple').value.trim()
   const country=document.getElementById('newCountry').value.trim()
+  const summary=[`ชื่อ: ${name_th}`,name_en?`ชื่ออังกฤษ: ${name_en}`:'',rank?`สมณศักดิ์: ${rank}`:'',temple?`วัด: ${temple}`:'',country?`ประเทศ: ${country}`:''].filter(Boolean).join('\n')
+  if(!confirm(`ตรวจสอบข้อมูลก่อนบันทึก\n\n${summary}\n\nยืนยันใช่หรือไม่?`)) return
   const btn=document.querySelector('#addNewOverlay .modal-btn')
   btn.disabled=true; btn.textContent='กำลังบันทึก...'
   const{error}=await db.from('checkins').insert({name_th,name_en,rank,temple,country,date:today})
