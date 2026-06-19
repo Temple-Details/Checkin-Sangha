@@ -833,12 +833,14 @@ async function exportExcel(){
   const ws2=wb.addWorksheet('⏳ ยังไม่มา')
   ws2.columns=[
     {key:'no',width:7},{key:'name_th',width:38},{key:'name_en',width:36},
-    {key:'rank',width:32},{key:'temple',width:34},{key:'country',width:16}
+    {key:'rank',width:32},{key:'temple',width:34},{key:'country',width:16},
+    {key:'absent_date',width:20}
   ]
-  const h2=ws2.addRow(['ลำดับ','ชื่อ-ฉายา (ไทย)','ชื่อ (อังกฤษ)','สมณศักดิ์','วัด','ประเทศ'])
+  const absentDateLabel=currentFilter==='all'?'19-21 มิ.ย. 2569':DAY[currentFilter]||currentFilter
+  const h2=ws2.addRow(['ลำดับ','ชื่อ-ฉายา (ไทย)','ชื่อ (อังกฤษ)','สมณศักดิ์','วัด','ประเทศ','ไม่ได้มาวันที่'])
   styleHeader(h2,'FFDC2626')
   absentData.forEach((m,i)=>{
-    const row=ws2.addRow([i+1,m.name_th,m.name_en||'',m.rank||'',m.temple||'',m.country||''])
+    const row=ws2.addRow([i+1,m.name_th,m.name_en||'',m.rank||'',m.temple||'',m.country||'',absentDateLabel])
     styleRow(row,i)
     row.height=32
   })
