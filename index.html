@@ -1,0 +1,747 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="เช็คชื่อประชุม">
+  <meta name="theme-color" content="#2563eb">
+  <title>เช็คชื่อเข้าร่วมประชุม – สมัยสามัญ ครั้งที่ ๑๙</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #2563eb;
+      --blue-dark:  #1d4ed8;
+      --blue-soft:  #eff6ff;
+      --blue-mid:   #dbeafe;
+      --green:      #16a34a;
+      --text:       #0f172a;
+      --text-2:     #64748b;
+      --text-3:     #cbd5e1;
+      --border:     #f1f5f9;
+      --border-2:   #e2e8f0;
+      --bg:         #f8fafc;
+      --white:      #ffffff;
+      --shadow:     0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+      --shadow-lg:  0 8px 32px rgba(0,0,0,0.10);
+    }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background: var(--white);
+      min-height: 100vh;
+      min-height: 100dvh;
+      color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      overscroll-behavior: none;
+    }
+
+    .page-wrap {
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      background: var(--blue);
+      padding: 20px 20px 20px;
+      padding-top: calc(20px + env(safe-area-inset-top));
+      position: relative;
+      overflow: hidden;
+    }
+    .header-video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; opacity: 0.12;
+      pointer-events: none;
+    }
+    .header-sub {
+      font-size: 11px; font-weight: 500;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 1.2px; text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .header-h1 { font-size: 22px; font-weight: 700; color: white; line-height: 1.3; }
+    .header-row {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 12px;
+    }
+    .header-date {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 14px;
+      font-size: 12px; color: rgba(255,255,255,0.55);
+    }
+    .admin-trigger {
+      flex-shrink: 0; margin-top: 2px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.65);
+      font-family: 'Sarabun', sans-serif;
+      font-size: 12px; padding: 7px 14px;
+      border-radius: 20px; cursor: pointer;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .admin-trigger:hover { background: rgba(255,255,255,0.22); color: white; }
+
+    /* ===== SEARCH ===== */
+    .search-wrap { background: var(--blue); padding: 0 16px 20px; }
+    .search-box {
+      display: flex; align-items: center;
+      background: white; border-radius: 12px;
+      padding: 11px 16px; gap: 10px;
+      box-shadow: var(--shadow-lg);
+    }
+    .search-box svg { flex-shrink: 0; color: var(--text-3); }
+    .search-box input {
+      border: none; outline: none;
+      font-family: 'Sarabun', sans-serif; font-size: 16px;
+      flex: 1; color: var(--text); background: transparent;
+    }
+    .search-box input::placeholder { color: var(--text-3); }
+    .clear-btn {
+      background: var(--bg); border: none; cursor: pointer;
+      color: var(--text-2); font-size: 13px;
+      padding: 6px 10px; border-radius: 8px; display: none;
+      min-width: 32px; min-height: 32px;
+    }
+
+    /* ===== RESULTS ===== */
+    .results { padding: 20px 16px calc(40px + env(safe-area-inset-bottom)); }
+
+    .hint {
+      text-align: center; color: var(--text-3);
+      font-size: 14px; padding: 52px 0 20px;
+      line-height: 1.8;
+    }
+    .hint-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.6; }
+
+    .no-result {
+      text-align: center; color: var(--text-2);
+      font-size: 14px; padding: 48px 20px; line-height: 1.8;
+    }
+
+    /* card */
+    .card {
+      background: var(--white);
+      border-radius: 14px; padding: 16px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border-2);
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .card:hover { box-shadow: var(--shadow); border-color: var(--blue-mid); }
+
+    .card-row { display: flex; align-items: flex-start; gap: 12px; }
+    .card-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--blue-mid); border: 2px solid var(--blue);
+      flex-shrink: 0; margin-top: 6px;
+    }
+    .card-body { flex: 1; min-width: 0; }
+    .card-name { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.4; }
+    .card-name-en { font-size: 12px; color: var(--text-2); margin-top: 3px; line-height: 1.4; }
+    .card-rank {
+      display: inline-block; margin-top: 5px;
+      font-size: 11px; color: var(--blue);
+      background: var(--blue-soft); border-radius: 6px;
+      padding: 2px 8px;
+    }
+    .card-meta {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+    }
+    .meta-tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; color: var(--text-2);
+      background: var(--bg); border-radius: 8px;
+      padding: 4px 10px; border: 1px solid var(--border-2);
+    }
+    .meta-tag svg { color: var(--text-3); flex-shrink: 0; }
+
+    .btn-checkin {
+      margin-top: 14px; width: 100%;
+      background: var(--blue); color: white;
+      border: none; border-radius: 10px; padding: 14px;
+      font-family: 'Sarabun', sans-serif; font-size: 16px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; letter-spacing: 0.2px;
+      min-height: 50px; touch-action: manipulation;
+    }
+    .btn-checkin:hover:not(:disabled) { background: var(--blue-dark); }
+    .btn-checkin:active:not(:disabled) { transform: scale(0.98); }
+    .btn-checkin:disabled { background: var(--text-3); cursor: not-allowed; }
+
+    .checked-badge {
+      margin-top: 12px;
+      display: flex; align-items: center; gap: 8px;
+      color: var(--green); font-size: 13px; font-weight: 600;
+      padding: 10px 14px; background: #f0fdf4;
+      border-radius: 10px; border: 1px solid #bbf7d0;
+    }
+    .check-dot {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--green); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; flex-shrink: 0;
+    }
+
+    .loading { text-align: center; padding: 52px 0; color: var(--text-2); font-size: 14px; }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2.5px solid var(--blue-mid); border-top-color: var(--blue);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== TOAST ===== */
+    .toast {
+      position: fixed;
+      bottom: calc(28px + env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%) translateY(70px);
+      background: #0f172a; color: white; border-radius: 12px;
+      padding: 12px 24px; font-size: 15px; font-weight: 500;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 9999; white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ===== MODAL ===== */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,23,42,0.5);
+      backdrop-filter: blur(6px);
+      z-index: 100; align-items: center; justify-content: center; padding: 24px;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      background: white; border-radius: 20px;
+      padding: 32px 24px; width: 100%; max-width: 320px;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+      animation: popIn 0.22s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: var(--blue-soft); margin: 0 auto 16px;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .modal h2 { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .modal p { font-size: 13px; color: var(--text-2); margin-bottom: 20px; line-height: 1.7; }
+    .modal input {
+      width: 100%; border: 1.5px solid var(--border-2); border-radius: 10px;
+      padding: 14px 16px; font-family: 'Sarabun', sans-serif; font-size: 16px;
+      color: var(--text); outline: none; text-align: center;
+      letter-spacing: 3px; margin-bottom: 10px; transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    .modal input:focus { border-color: var(--blue); }
+    .modal-err { font-size: 12px; color: #ef4444; margin-bottom: 12px; min-height: 16px; }
+    .modal-btn {
+      width: 100%; background: var(--blue); color: white;
+      border: none; border-radius: 10px; padding: 15px;
+      font-family: 'Sarabun', sans-serif; font-size: 16px; font-weight: 600;
+      cursor: pointer; margin-bottom: 10px; transition: background 0.15s;
+      min-height: 52px; touch-action: manipulation;
+    }
+    .modal-btn:hover { background: var(--blue-dark); }
+    .modal-cancel {
+      background: none; border: none; color: var(--text-3);
+      font-family: 'Sarabun', sans-serif; font-size: 13px; cursor: pointer; padding: 4px;
+    }
+
+    /* ===== ADMIN ===== */
+    #adminPanel { display: none; }
+
+    .admin-header {
+      background: #0f172a;
+      padding: 20px 20px 20px;
+      padding-top: calc(20px + env(safe-area-inset-top));
+    }
+    .admin-header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+    .admin-header-sub {
+      font-size: 11px; font-weight: 500; letter-spacing: 1.2px;
+      text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 6px;
+    }
+    .admin-header-h1 { font-size: 22px; font-weight: 700; color: white; }
+    .back-btn {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.55); font-family: 'Sarabun', sans-serif;
+      font-size: 12px; padding: 7px 14px; border-radius: 20px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+
+    .stats-section { padding: 20px 16px 8px; }
+    .stat-main {
+      background: var(--blue); border-radius: 16px;
+      padding: 24px; text-align: center; margin-bottom: 10px;
+    }
+    .stat-main .big-num { font-size: 52px; font-weight: 700; color: white; line-height: 1; }
+    .stat-main .big-label { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 6px; }
+
+    .stat-days { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .day-cell {
+      background: var(--white); border: 1px solid var(--border-2);
+      border-radius: 12px; padding: 14px 8px; text-align: center;
+    }
+    .day-cell .num { font-size: 26px; font-weight: 700; color: var(--text); }
+    .day-cell .lbl { font-size: 11px; color: var(--text-2); margin-top: 3px; }
+
+    .controls {
+      padding: 12px 16px 8px;
+      display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    }
+    .date-btn {
+      padding: 9px 16px; border-radius: 20px;
+      border: 1px solid var(--border-2); background: var(--white);
+      color: var(--text-2); font-family: 'Sarabun', sans-serif;
+      font-size: 13px; cursor: pointer; transition: all 0.15s;
+      min-height: 40px; touch-action: manipulation;
+    }
+    .date-btn.active { background: var(--text); color: white; border-color: var(--text); }
+    .export-btn {
+      margin-left: auto; display: flex; align-items: center; gap: 6px;
+      padding: 7px 16px; border-radius: 20px;
+      background: var(--green); color: white; border: none;
+      font-family: 'Sarabun', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer;
+    }
+    .refresh-btn {
+      background: var(--white); border: 1px solid var(--border-2);
+      border-radius: 20px; color: var(--text-2);
+      font-size: 14px; padding: 7px 12px; cursor: pointer;
+    }
+
+    .count-label { font-size: 12px; color: var(--text-3); padding: 4px 16px 10px; }
+
+    .admin-list { padding: 0 16px calc(40px + env(safe-area-inset-bottom)); }
+    .row-item {
+      background: var(--white); border-radius: 12px; padding: 14px 16px;
+      margin-bottom: 8px; border: 1px solid var(--border-2);
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .row-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+    .row-num {
+      font-size: 11px; font-weight: 600; color: var(--text-2);
+      min-width: 22px; flex-shrink: 0;
+    }
+    .row-info { min-width: 0; }
+    .row-name { font-size: 14px; font-weight: 600; color: var(--text); }
+    .row-sub { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+    .row-right { text-align: right; flex-shrink: 0; }
+    .row-day { font-size: 11px; font-weight: 600; color: var(--blue); margin-bottom: 2px; }
+    .row-time { font-size: 12px; color: var(--text-2); }
+
+    .empty { text-align: center; padding: 56px 0; color: var(--text-3); font-size: 14px; }
+
+    .view-tabs {
+      display: flex; gap: 6px; padding: 8px 16px 0;
+    }
+    .view-tab {
+      flex: 1; padding: 10px; border-radius: 10px;
+      border: 1.5px solid var(--border-2); background: var(--white);
+      font-family: 'Sarabun', sans-serif; font-size: 13px; font-weight: 500;
+      color: var(--text-2); cursor: pointer; transition: all 0.15s; text-align: center;
+    }
+    .view-tab.active { background: var(--text); color: white; border-color: var(--text); }
+    .view-tab.absent-tab.active { background: #ef4444; border-color: #ef4444; color: white; }
+
+    .del-btn {
+      background: none; border: 1px solid #fecaca; color: #ef4444;
+      border-radius: 8px; font-size: 12px; padding: 5px 10px; cursor: pointer;
+      flex-shrink: 0; transition: all 0.15s; white-space: nowrap;
+    }
+    .del-btn:hover { background: #fef2f2; }
+
+    .absent-badge {
+      display: inline-block; font-size: 11px; color: #ef4444;
+      background: #fef2f2; border-radius: 6px; padding: 2px 8px; margin-top: 3px;
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- ===== CHECK-IN ===== -->
+<div id="checkinPage">
+  <div class="header">
+    <video class="header-video" autoplay muted loop playsinline>
+      <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260302_085844_21a8f4b3-dea5-4ede-be16-d53f6973bb14.mp4" type="video/mp4">
+    </video>
+    <div class="header-row">
+      <div>
+        <div class="header-sub">สมัยสามัญ ครั้งที่ ๑๙</div>
+        <div class="header-h1">เช็คชื่อเข้าร่วมประชุม</div>
+      </div>
+      <button class="admin-trigger" onclick="openPassModal()">ผู้ดูแล</button>
+    </div>
+    <div class="header-date">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span id="dateDisplay"></span>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="searchInput" placeholder="ค้นหาชื่อ / สมณศักดิ์ / วัด / ประเทศ..." autocomplete="off" autocorrect="off">
+      <button class="clear-btn" id="clearBtn" onclick="clearSearch()">✕</button>
+    </div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="loading"><div class="spinner"></div>กำลังโหลดข้อมูล...</div>
+  </div>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="overlay" id="passOverlay">
+  <div class="modal">
+    <div class="modal-icon">🔐</div>
+    <h2>หน้าผู้ดูแล</h2>
+    <p>ใส่รหัสผ่านเพื่อเข้าดูข้อมูลการเช็คชื่อและ Export รายงาน</p>
+    <input type="password" id="passInput" placeholder="รหัสผ่าน" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitPass()">
+    <div class="modal-err" id="passErr"></div>
+    <button class="modal-btn" onclick="submitPass()">เข้าสู่ระบบ</button>
+    <button class="modal-cancel" onclick="closePassModal()">ยกเลิก</button>
+  </div>
+</div>
+
+<!-- ===== ADMIN ===== -->
+<div id="adminPanel">
+  <div class="admin-header">
+    <div class="admin-header-row">
+      <div>
+        <div class="admin-header-sub">Admin · สมัยสามัญ ครั้งที่ ๑๙</div>
+        <div class="admin-header-h1">รายงานการเช็คชื่อ</div>
+      </div>
+      <button class="back-btn" onclick="showCheckin()">← กลับ</button>
+    </div>
+  </div>
+
+  <div class="stats-section">
+    <div class="stat-main">
+      <div class="big-num" id="statTotal">-</div>
+      <div class="big-label">รูปที่เช็คอินแล้วทั้งหมด</div>
+    </div>
+    <div class="stat-days">
+      <div class="day-cell"><div class="num" id="stat19">-</div><div class="lbl">19 มิ.ย.</div></div>
+      <div class="day-cell"><div class="num" id="stat20">-</div><div class="lbl">20 มิ.ย.</div></div>
+      <div class="day-cell"><div class="num" id="stat21">-</div><div class="lbl">21 มิ.ย.</div></div>
+    </div>
+  </div>
+
+  <div class="view-tabs">
+    <button class="view-tab active" id="tabCheckin" onclick="switchView('checkin')">✅ เช็คอินแล้ว</button>
+    <button class="view-tab absent-tab" id="tabAbsent" onclick="switchView('absent')">⏳ ยังไม่มา</button>
+  </div>
+
+  <div class="controls">
+    <button class="date-btn active" onclick="filterDate('all',this)">ทั้งหมด</button>
+    <button class="date-btn" onclick="filterDate('2026-06-19',this)">19 มิ.ย.</button>
+    <button class="date-btn" onclick="filterDate('2026-06-20',this)">20 มิ.ย.</button>
+    <button class="date-btn" onclick="filterDate('2026-06-21',this)">21 มิ.ย.</button>
+    <button class="refresh-btn" onclick="loadAdmin()">↻</button>
+    <button class="export-btn" onclick="exportExcel()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Excel
+    </button>
+  </div>
+
+  <div style="padding: 8px 16px 0;">
+    <div class="search-box" style="box-shadow:none; border: 1px solid var(--border-2); border-radius: 10px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="adminSearch" placeholder="ค้นหาชื่อ..." autocomplete="off"
+        oninput="renderAdmin()" style="font-size:14px;">
+      <button class="clear-btn" id="adminClearBtn" onclick="document.getElementById('adminSearch').value='';document.getElementById('adminClearBtn').style.display='none';renderAdmin()">✕</button>
+    </div>
+  </div>
+
+  <div class="count-label" id="countLabel"></div>
+  <div class="admin-list" id="adminList">
+    <div class="loading"><div class="spinner"></div>กำลังโหลด...</div>
+  </div>
+</div>
+
+</div><!-- end page-wrap -->
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://xmfggihlxuzuwvgvqdmp.supabase.co'
+const SUPABASE_KEY = 'sb_publishable_N_VVcZC7iCvrqWnCR1sxuA_De0h1ay3'
+const ADMIN_PASS  = 'admin2026'
+
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+const MONKS_DATA = [{"id":0,"name_th":"พระชัชฐากร กันสุนา อาริโย","name_en":"Phra Chatthakorn. Kansuna","rank":"พระครูวิเทศสิทธิสุนทร","temple":"วัดเทพวงศาราม","country":"เยอรมนี"},{"id":1,"name_th":"พระมหาสถาพร  ไชยโอชะ (สมาจาโร)","name_en":"Phramaha Sathaporn Chaiyaocha(Samacharo)","rank":"ไม่มา","temple":"วัดพุทธโสธร อุปซอลา","country":"สวีเดน"},{"id":2,"name_th":"พระเจริญชัย ฟองจามร จนฺทสุทฺโธ","name_en":"PhraCharoenchai  Fongjamorn  Chanthasutho","rank":"พระครูวินัยธรเจริญชัย จนฺทสุทฺโธ","temple":"วัดไทยอุปซอลา","country":"สวีเดน"},{"id":3,"name_th":"พระพงษ์สุธี อาจศิริ อุตฺตมวํโส","name_en":"Phra Phongsuthee  Artsiri","rank":"พระครูภาวนาวรสิทธิ","temple":"วัดสยามินทร์มังคลาราม","country":"สวีเดน"},{"id":4,"name_th":"พระทรงพล  คุณชโย","name_en":"PhraSongpol  Gunachayo","rank":"ไม่มา","temple":"วัดอุบลมณี","country":"นอร์เวย์"},{"id":5,"name_th":"พระมหาก้องเกียรติ ชินุตฺตโม ด่อนแจ็ก","name_en":"Phrakhrupalad Kongkiat Donjak","rank":"พระครูกิตติธรรมวิเทศ","temple":"ศรีนครินทรวราราม","country":"สวิตเซอร์แลนด์"},{"id":6,"name_th":"พระมหาสุพจน์ บ้ำสันเทียะ ธีรวาโท","name_en":"Pharmaka Suphoj Bamsanthia","rank":"","temple":"ศรีนครินทรวราราม","country":"สวิตเซอร์แลนด์"},{"id":7,"name_th":"นายมนู  นิลนวล","name_en":"Mr.Manoo Nilnual","rank":"","temple":"ศรีครินทรวราราม","country":"สวิตเซอร์แลนด์"},{"id":8,"name_th":"นางสุกัญญา ฮูก","name_en":"Mrs.Sukanya Hug","rank":"","temple":"ศรีนครินทรวราราม","country":"สวิตเซอร์แลนดื"},{"id":9,"name_th":"พระมหาณรินศักดิ์ สิงห์วงศ์  สจฺจวาที","name_en":"PhramahaNarinsak. Singwong","rank":"","temple":"พุทธารามเซาว์เวอร์ลันด์ เยอรมนี","country":"เยอรมนี"},{"id":10,"name_th":"พระมหาสุนทร  สุนทรธมฺโม","name_en":"Phramaha Sunthorn  Sunthornthammo","rank":"","temple":"วัดไทยเดนมาร์กพรหมวิหาร","country":"เดนมาร์ก"},{"id":11,"name_th":"นางฉวีวรรณ คาเนีย","name_en":"Mrs.Chaweewan Kania","rank":"","temple":"วัดเทพวงศาราม","country":"เยอรมนี"},{"id":12,"name_th":"นางสาวนาตาลี คาเนีย","name_en":"Miss Natalie Kania","rank":"","temple":"วัดเทพวงศาราม","country":"เยอรมนี"},{"id":13,"name_th":"นางสาวนพรัตน์ กุลจันทร์","name_en":"Miss Nopparat. Kuljan","rank":"","temple":"วัดเทพวงศาราม","country":"เยอรมนี"},{"id":14,"name_th":"พระสานนท์ ขนฺธวิริโย บัวแก้ว","name_en":"Phra Sanon Buakaew","rank":"","temple":"ไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":15,"name_th":"พระมหาสมพร อ่อนขวัญเพ็ชร ฐิตเมโธ","name_en":"Phramaha Somporn Onkwanphet Titameto","rank":"พระครูสุตวิริยวิเทศ","temple":"ไทยสามัคคีเยอรมนี","country":"เยอรมนี"},{"id":16,"name_th":"พระมหาสมพร วันสีแก้ว","name_en":"Phramaha Somporn Wansikaeo","rank":"พระครูวิบูลย์ปริยัตยาภรณ์","temple":"วัดเจริญธรรม ลึกเด","country":"เยอรมัน"},{"id":17,"name_th":"พระครูพุทธิปภากร","name_en":"Phrakruputipabagorng Sarakhan Apakaro","rank":"พระครูพุทธิปภากร","temple":"วัดไทยพุทธอาภา","country":"ประเทศเยอรมนี"},{"id":18,"name_th":"พระมหาจันทร์ดี ธัมมสิทธิ ( เหตุเกษ)","name_en":"Phramahajandee Dhammasitti. (Hetget)","rank":"-","temple":"พระธรรมกายฮัมบวร์ก","country":"เยอรมนี"},{"id":19,"name_th":"พระครูสังฆรักษ์ ศิริชัย ภทฺทโก","name_en":"Sirichai Chaiyanboon / Pattago","rank":"พระครูสังฆรักษ์","temple":"วัดป่าพุทธวิปัสสนา","country":"เยอรมนี"},{"id":20,"name_th":"พระครูวิเทศรัตนวงศ์ อคฺควิปุโล","name_en":"Phra Phaiboonkit Silaphong","rank":"พระครูวิเทศรัตนวงศ์","temple":"วัดสมเด็จเยอรมันนี","country":"เยอรมนี"},{"id":21,"name_th":"พระมหานวล ชำนาญรัมย์","name_en":"Phramaha Nuan Chamnanram","rank":"พระครูศรีญาณวิเทศ","temple":"วัดพุทธาราม ฟินแลนด์","country":"ฟินแลนด์"},{"id":22,"name_th":"นาง เอ๊กซ์วัล คำเมือง","name_en":"Mrs. X-Wan Kammuang","rank":"","temple":"วัดเทพวงศาราม","country":"เยอรมนี"},{"id":23,"name_th":"พระครูศรีกิตยาภินันท์ กุลจรัสโภคิน  ฉายา อนาลโย","name_en":"Phrakhrusrikitayaphinan  kunjaruspokin  Analayo","rank":"พระครูศรีกิตยาภินันท์","temple":"วัดไทยชวาร์ซวาลด์  เยอรมนี","country":"เยอรมัน"},{"id":24,"name_th":"พระมหาศิรินญชัย สูกรรัตนวงศ์  ธนญฺชยเมธี","name_en":"Phramahasirinchai. Sookararattanawong","rank":"พระมหาศิรินญ์ชัย","temple":"วัดไทยชวาร์ซวาลด์","country":"เยอรมัน"},{"id":25,"name_th":"พระครูประโชติโสตถิธรรม  ตาแก้ว","name_en":"Phrakhruprachotsotthitham  takaew","rank":"พระครูประโชติโสตถิธรรม","temple":"วัดไทยชวาร์ซวาลด์","country":"เยอรมัน"},{"id":26,"name_th":"พระอนันต์  รัตนะ (ฉันทโก)","name_en":"Phra Anan  Ruttana (Chuntako)","rank":"","temple":"วัดบุญญาราม","country":"เยอรมนี"},{"id":27,"name_th":"พระมหานวล ชำนาญรัมย์ วณฺณวฑฺฒโก","name_en":"Phramaha Nuan Chamnanram","rank":"พระครูศรีญาณวิเทศ","temple":"พุทธารามฟินแลนด์","country":"ฟินแลนด์"},{"id":28,"name_th":"พระมหาไพทูล วงค์อามาตย์(พระครูเมธีชยาภิวัฒน์)","name_en":"Phramaha Phaithoon Wongamart","rank":"","temple":"สันติวราราม เมือง Offingen","country":"เยอรมนี"},{"id":29,"name_th":"พระมหายุทธพงษ์ สาริกัน ธีรปญฺญวา","name_en":"Phramaha Yutthapong Sarikan","rank":"","temple":"ใหม่มงคล ไทย-ลักซ์","country":"ลักเซมเบิร์ก"},{"id":30,"name_th":"พระครูสังฆบริบาล (สมบูรณ์ อุทา)","name_en":"Phrakhrusangkhaborriban (Somboon Utha)","rank":"พระครูสังฆบริลาล","temple":"วัดพุทธชินวงศ์ นอร์เวย์","country":"นอร์เวย์"},{"id":31,"name_th":"พระมหาณพล เพชรวิเชียร","name_en":"PHRAMAHA NAPON PETWICHIAN PARATINNO","rank":"","temple":"พุทธปทีป กรุงลอนดอน","country":"อังกฤษ"},{"id":32,"name_th":"พระสมุห์พรเทพ ภวธมฺโม (โตแย้ม","name_en":"Phrasamu Phonthep Toyaem Bhavadhammo","rank":"พระสมุห์","temple":"ไทยรัตนประทีป","country":"ฮังการี"},{"id":33,"name_th":"พระอนุพงศ์ สุขเฉลิม อนีโฆ","name_en":"Phra anupong sookchalerm","rank":"","temple":"สังฆทานไทย-เยอรมัน","country":"เยอรมนี"},{"id":34,"name_th":"พระเลอพันธ์ ปัญญาปสุโต คุปติพงศ์กุล","name_en":"Phra Lurphan Panjapasuto Kuptiphongkul","rank":"","temple":"วัดพระพุทธภาสฯ นอร์เวย์","country":"นอร์เวย์"},{"id":35,"name_th":"พระมหานงค์ สุมงฺคโล","name_en":"์Nong Abpai","rank":"พระศรีวชิรธรรมวิเทศ วิ.","temple":"วัดพระเชตุพน กรุงปารีส","country":"ฝรั่งเศส"},{"id":36,"name_th":"พระครูโพธิชัยคณาภิวัฒน์","name_en":"Phrakhruphothichaikanapiwat sopabutr","rank":"พระครูโพธิชัยคณาภิวัฒน์","temple":"ศรีนครินทรวราราม","country":"สวิตเซอร์แลนด์"},{"id":37,"name_th":"พระมหาฉัตรชัย ชอบสมัย วรชโย","name_en":"Phramaha Chatchai Chobsamai  Varajayo","rank":"พระครูปริยัติกิตติวิเทศ","temple":"วัดไทยติชิโน่","country":"สวิตเซอร์แลนด์"},{"id":38,"name_th":"พระธรรมวชิรโมลี (ทองสูรย์ สุริยโชโต) (รองทอง)","name_en":"Phradhamvajiramoli (Rongthong) (Suriyajoto)","rank":"พระธรรมวชิรโมลี","temple":"วัดยานนาวา สาทร กรุงเทพฯ","country":"ประเทศไทย"},{"id":39,"name_th":"พระชาญ  สำเริงศิลป์","name_en":"CHAN   SAMRUENHSIN","rank":"พระครูภาวนาธรรมวิเทศ","temple":"สันติวงศาราม  เบอร์มิงแฮม","country":"สหราชอาณาจักร"},{"id":40,"name_th":"พระรุ่งทิวา ลิ่มใช้","name_en":"PHRARUNGTIVA  LIMCHAI","rank":"ไม่มี","temple":"สันติวงศาราม เบอร์มิงแฮม","country":"สหราชอาณาจักร"},{"id":41,"name_th":"MR.DAVID WALLACE","name_en":"MR. DAVID  WALLACE","rank":"ไม่มี","temple":"สันติวงศาราม  เบอร์มิงแฮม","country":"สหราชอาณาจักร"},{"id":42,"name_th":"นางนิลุบล  แสนขวา","name_en":"MRS NILUBON  SANKWA","rank":"ไม่มี","temple":"สันติวงศาราม  เบอร์มิงแฮม","country":"สหราชอาณาจักร"},{"id":43,"name_th":"พระมหาสำรอง วงศ์ใหญ่ (ฐิติรตโน)","name_en":"Phramaha Samrong Wongyai","rank":"พระครูสุตพุทธิรัตน์","temple":"วัดพุทธิรัตนาราม เนเธอร์แลนด์","country":"เนเธอร์แลนด์"},{"id":44,"name_th":"พระนิพนธ์ ฮวดเกิด  ฉายา ปัญญาสาโร","name_en":"PHRAPANYAKONMOLI  HUADKOED","rank":"พระราชวชิรากร","temple":"ท่าไม้เหนือ ต.บ้านหม้อ อ.พิชัย  จ.อุตรดิตถ์","country":"ไทย"},{"id":45,"name_th":"พระสุรวิทย์  พลอยรัก","name_en":"PHRAKHRUSUMET PATTHANOTHAI  PLOYRAK","rank":"พระครูสุเมทพัฒโนทัย","temple":"วัดไทยชุมพล  ต.ธานี อ.เมืองสุโขทัย  จ.สุโขทัย","country":"ไทย"},{"id":46,"name_th":"พระมหาวีรวิชญ์  สัตตารัมย์","name_en":"PHRAMAHA WERAWICH SATTARAM","rank":"ไม่มี","temple":"วัดพรหมวงศาราม 41 ซ.เพิ่มสิน ถ.ประชาสงเคราะห์27  แขวงรัชดาภิเษก  เขตดินแดง  กทม 10400","country":"ไทย"},{"id":47,"name_th":"พระกิตินันท์  กลิ่มหอม   ฉายา ปุงคโว","name_en":"PHRAKITINUN    KLINHOM","rank":"ไม่มี","temple":"อุทัยธาราม  แขวงบางกระปิ  เขตห้วยขวงา กทม.","country":"ไทย"},{"id":48,"name_th":"พระครูสังฆรักษ์สมหมาย  หอมเพียร","name_en":"PHRAKHRUSANGKHARAK SOMMAI  HORMPIAN","rank":"พระครูสังฆรักษ์","temple":"เกาะวาลุการาม ต.สวนดอก อ.เมือง ลำปาง","country":"ไทย"},{"id":49,"name_th":"พระบุญชู   ชัยชนะ","name_en":"PHRAKHRUSRIWAROPAS  CHAICHANA","rank":"พระครูศรีวโรภาส","temple":"หนองเส้ง  ถ.เจริญราษฎร์ ต.ในเมือง อ.เมืองจ.ลำพูน","country":"ไทย"},{"id":50,"name_th":"พระศิริชัย ไชยยันบูรณ์  ภทฺทโก","name_en":"Phra Sirichai Chaiyanboon Pattago","rank":"พระครูสังฆรักษ์","temple":"วัดป่าพุทธวิปัสสนา","country":"เยอรมนี"},{"id":51,"name_th":"น.ส.สุภนิช  ทรัพย์ประดิษฐ์","name_en":"SUPANIT  SAPPRADIT","rank":"ไม่มี","temple":"ท่าไม้เหนือ ต.บ้านหม้อ  อ.พิชัย จ.อุตรดิตถ์","country":"ไทย"},{"id":52,"name_th":"พระสุชาติ  สายโรจน์  ฉายา จนฺทสโร","name_en":"PHRA SUCHAT  SAIROT","rank":"ไม่มี","temple":"เกาะวาลุการาม  ต.สวนดอก  อ.เมือง จ.ลำปาง","country":"ไทย"},{"id":53,"name_th":"น.ส.สาริสา  สัสสินทร","name_en":"MISS SARISA  SASSINTRON","rank":"ไม่มี","temple":"เกาะวาลุการาม ต.สวนดอก  อ.เมือง จ.ลำปาง","country":"ไทย"},{"id":54,"name_th":"พระครูใบฎีกาไสว  สีปัญหา  ฉายา ฐิตธมฺโม","name_en":"Phra Krubaidika Sawai Seepanha Thitadhammo","rank":"พระครูใบฎีกา","temple":"วัดพุทธภาวนาโคโลญจน์","country":"เยอรมนี"},{"id":55,"name_th":"พระณัฏฐ์ฐิภัทร  ปานสมบัติ","name_en":"PHRA NATTIPAT  PANSOMBUT","rank":"ไม่มี","temple":"พระธาตุดอยสุเทพ ราชวรวิหาร 9 หมู่ 9 ถ.ศรีวิชัย   ต.สุเทพ  อ.เมืองเชียงใหม่   จ.เชียงใหม่","country":"ไทย"},{"id":56,"name_th":"พระอาทิตย์  ขูรูรักษ์ อาทิตปัญโญ","name_en":"Phra Artit  Khururak  Atitapanyo","rank":"","temple":"วัดพุทธรักษา เยอรมนี","country":"เยอรมนี"},{"id":57,"name_th":"พระอาทิตย์ ขูรูรักษ์ อาทิตปัญโญ","name_en":"Phra  Artit Khururak","rank":"","temple":"วัดพุทธรักษา เยอรมนี","country":"เยอรมนี"},{"id":58,"name_th":"พระอรรถชาติ  เดชดำรง ฉายา อตฺถชาโต","name_en":"PHRA AUTTHACHART  DATDAMRONG","rank":"พระปลัด","temple":"พระธรรมกาย 23/2 ม.7 ต.คลองสาม อ.คลองหลวง จ.ประทุมธานี 12120","country":"ไทย"},{"id":59,"name_th":"นางอนันต์  ชื่นชม","name_en":"MRS. ANUN  CHUENCHOM","rank":"ไม่มี","temple":"ท่าไม้เหนือ ต.บ้านหม้อ อ.พิชัย จ.อุตรดิตถ์","country":"ไทย"},{"id":60,"name_th":"สุชาภรณ์  สุทธิมานัส","name_en":"Suchaporn Suttimanus","rank":"ไม่มา","temple":"วัดพุทธวิหาร  อัมส์เตอร์ดัมส์","country":"เนเธอร์แลนด์"},{"id":61,"name_th":"สิตา พลโภค","name_en":"Sita Pholpoke","rank":"ไม่มา","temple":"วัดพุทธวิหาร อัมส์เตอร์ดัมส์","country":"เนเธอร์แลนด์"},{"id":62,"name_th":"พระมหาวุฒิ  ญาณิสฺสโร  นามสกุล ใหม่คำ","name_en":"PHRAMAHA WUTH  MAICAM","rank":"ไม่มี","temple":"วัดพรหมวงศาราม  กทม","country":"ไทย"},{"id":63,"name_th":"นาง ลำไย แฮร์มันน์","name_en":"Mrs. Lamyai Herrmann","rank":"","temple":"วัดสันติวราราม","country":"เยอรมนี"},{"id":64,"name_th":"นาย อนนท์ เสาร์แก้ว","name_en":"Mr. Anon Saokaew","rank":"","temple":"วัดสันติวราราม","country":"เยอรมนี"},{"id":65,"name_th":"นาง อัจฉราพร เค็มพ์เทอร์","name_en":"Mrs. Atcharaporn  Kempter","rank":"","temple":"วัดสันติวราราม","country":"เยอรมนี"},{"id":66,"name_th":"พระมหาอัคพล ญาณธีโร ทองอินทร์","name_en":"Phramaha Akapon Thongin   Yanatero","rank":"","temple":"วัดไทยอินนส์บรุค ธรรมวิสุทธิ","country":"ออสเตรีย"},{"id":67,"name_th":"อยุธยา   โฟลวาล","name_en":"Ayutthaya Vonwald","rank":"","temple":"ไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":68,"name_th":"บุญเรือง   แปงนุจา","name_en":"Boonruang  Paengnucha","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":69,"name_th":"พระปลัดสานนท์ บัวแก้ว ขนฺธวิริโย","name_en":"PHRASANON BUAKAEW KHANDHAVIRIYO","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":70,"name_th":"สิริกร  คัวร์คา","name_en":"Sirikorn   Kurka","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":71,"name_th":"ธารทิพย์  ฮานูเช็ค","name_en":"Thantip  Hanousek","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":72,"name_th":"ชุลีพร  รัตนเจิมไพบูลย์","name_en":"Chuleeporn   Rattanajermpaibool","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":73,"name_th":"ทองมี  เอ็ทเท็นเนาเออร์","name_en":"Thongmee  Ettenauer","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":74,"name_th":"เฮอร์เบิร์ต    เอ็ทเท็นเนาเออร์","name_en":"Herbert   Ettenauer","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":75,"name_th":"พระวิมลมุนี สมเงิน","name_en":"PHRAWIMOLMUNEE  SOMNGOEN","rank":"พระวิมลมุนี","temple":"ศรีนครินทรวราราม","country":"สวิตเซอร์แลนด์"},{"id":76,"name_th":"พระครูวิเทศสุตเมธี สมศักดิ์ ศุภเลิศ (สกฺกเมธี)","name_en":"Phrakhruvidessutamedhi Somsak Subhalert","rank":"พระครูวิเทศสุตเมธี","temple":"วัดธัมมปทีป","country":"เบลเยี่ยม"},{"id":77,"name_th":"นาง ฐิติมา  พุ่มเนียม","name_en":"Mrs. thitimar Phummiam","rank":"","temple":"วัดธัมมปทีป","country":"เบลเยี่ยม"},{"id":78,"name_th":"นาง จินต์กัญญา ชญานิศชุติกาญจน์","name_en":"Mrs. Jinkanya Chayanitchutikan","rank":"","temple":"วัดธัมมปทีป","country":"เบลเยี่ยม"},{"id":79,"name_th":"นาง กฤษณาภา  บุญเกิด","name_en":"Mrs. Krissanapa  Boongerd","rank":"","temple":"วัดธัมมปทีป","country":"เบลเยี่ยม"},{"id":80,"name_th":"นาง แสงจันทร์ พันธ์สวัสดิ์","name_en":"Mrs. Saengchan Phansawat","rank":"","temple":"วัดธัมมปทีป เบลเยี่ยม","country":"เยอรมนี"},{"id":81,"name_th":"พระ รณรวี รวิปโภ","name_en":"Phra Ronrawee Rawiphapho","rank":"พระครูภาวนาญาณวิเทศ","temple":"พระธรรมกายเมลเบิร์น","country":"ออสเตรเลีย"},{"id":82,"name_th":"พระมหาวรรณวัฒน์ ร่มไพรงาม (ชุติปญฺโญ)","name_en":"Phramaha Wannawat Romphraingam (Jutipanyo)","rank":"","temple":"วัดไทยภาวนาบัลลารัท","country":"ออสเตรเลีย"},{"id":83,"name_th":"นาย ชรินทร์  สิทธิวัง","name_en":"Mr. Charin. Sitthiwang","rank":"","temple":"วัดธัมมปทีป","country":"เบลเยี่ยม"},{"id":84,"name_th":"พระมหาอดุลวิทย์","name_en":"PhramahaAdulwit    Janthasaro.  Mueanlamai","rank":"","temple":"วัดพระพุทธภาส ใน เฮ้ากะซุนด์","country":"นอร์เวย์"},{"id":85,"name_th":"พระมหาเชิดชูศักดิ์   ฉายาสุวฑฺฒโน  นามสกุลกาญจนบุตร","name_en":"Phramaha Choedchusak  Kanchanabut","rank":"","temple":"วัดพุทธปิยวราราม","country":"เยอรมนี"},{"id":86,"name_th":"พระมหาจักรเพชร   ฉายา โกวิโท  นามสกุล สอนสันติ","name_en":"Phramaha Chakphetr  Sonsanti","rank":"","temple":"วัดพุทธปิยวราราม","country":"เยอรมนี"},{"id":87,"name_th":"พระสมุห์ศรัณย์ สุทฺธิสทฺโธ","name_en":"Phra Saran Sutthisattho","rank":"","temple":"วัดพระธาตุศรีจอมทอง เยอรมนี","country":"เยอรมนี"},{"id":88,"name_th":"พระครูภาวนาพุทธิวิเทศ วิ.  ฉายา ชุตินฺธโร  นามสกุล ลิขิต","name_en":"Phrakhruphawanaphutthiwithet  Likhit","rank":"","temple":"วัดพุทธปิยวราราม","country":"เยอรมนี"},{"id":89,"name_th":"พระมหาทองนาค  ดวงพร  นาควโร","name_en":"Phramaha Thongnark Duangpon  Nagavaro","rank":"","temple":"วัดธรรมวิหาร ฮันโนเฟอร์","country":"เยอรมนี"},{"id":90,"name_th":"พระราชวชิรานุสิฐ   ปโมทิโต  ( ใจสมบุญ)","name_en":"PHRA RAJAVAJIRANUSIT.      JAISOMBOON","rank":"","temple":"วัดหลวงพ่อสดธรรมกายาราม  ต.แพงพวย อ.ดำเนินสะดวก  จ.ราชบุรี","country":"วัดพระพุทธภาส     นอร์เวย์"},{"id":91,"name_th":"คุณอัญชลี  แมร์เคิ้ล","name_en":"Anchalee Märkel","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":92,"name_th":"คุณวิชนี  มึนเคล","name_en":"Vichanee Muenkel","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์","country":"เยอรมนี"},{"id":93,"name_th":"คุณสมจิตร  มาร์ติน","name_en":"Somjit Martin","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์","country":"เยอรมนี"},{"id":94,"name_th":"คุณคชาภรณ์  ไฮนเซอร์","name_en":"Khachaphorn Heinze","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์","country":"เยอรมนี"},{"id":95,"name_th":"คุณณัฐพร  บัวร์เกอร์","name_en":"Natthaporn Bürger","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":96,"name_th":"คุณศิริยากร  อาร์มบรืสเทอร์","name_en":"Siriyakorn Armbrüster","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":97,"name_th":"คุณเก็จมณี  อาล์เย็ตส์","name_en":"Ketmanee Aljets","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":98,"name_th":"คุณวาสนา ชเนฮาเกอ","name_en":"Wasana Schnehage","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":99,"name_th":"คุณจุรีย์ เบคเคล","name_en":"Juree Becker","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":100,"name_th":"คุณนันท์นภัส ซิมม์","name_en":"Nantnapas Simm","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":101,"name_th":"คุณฐานภา  ถิรวัฒนากร","name_en":"Tanapa Thirawattanakorn","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":102,"name_th":"คุณแหม่ม  แมร์เคิล","name_en":"Mam Merkel","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์ (คณะทำงาน)","country":"เยอรมนี"},{"id":103,"name_th":"พระมหาวิทยา นางวงค์ (อภิชฺชโว)","name_en":"Phramaha Wittaya Nangwong","rank":"","temple":"วัดพุทธธรรม ออสเตรีย","country":"ออสเตรีย"},{"id":104,"name_th":"พระมหาวิวัต  ฌาเนสโก","name_en":"phramaha wiwat sirirat","rank":"","temple":"วัดพระธรรมกายไรน์แลนด์","country":"เยอรมนี"},{"id":105,"name_th":"พระมหาธีระ ภทฺทชโย","name_en":"Phramaha Teera Patthachayo","rank":"","temple":"วัดพุทธเวียนนา","country":"ออสเตรีย"},{"id":106,"name_th":"พระครูหิรัญอาวาสวัตร","name_en":"Phrakhruhiranarwaswat Jabjainai","rank":"พระครูหิรัญอาวาสวัตร (ฉายา ภูวนโย นามสกุล จับใจนาย)","temple":"วัดหิรัญญาวาส อำเภอแม่สาย จังหวัดเชียงราย","country":"ไทย"},{"id":107,"name_th":"พระมหาอมรวิชญ์  คารเมธี","name_en":"Phramaha Amonwit Butsan","rank":"","temple":"วัดศรีศักดาราม อำเภอเมืองเชียงราย จังหวัดเชียงราย","country":"ไทย"},{"id":108,"name_th":"พระครูประดิษฐ์กรณีย์ แสนใส","name_en":"Phrakhrupradithkoranee Sansai","rank":"พระครูประดิษฐ์กรณีย์","temple":"วัดโป่งมอญ อำเภอเมืองเชียงราย จังหวัดเชียงราย","country":"ไทย"},{"id":109,"name_th":"พระปรีชาวุฒิ ปริสุภาจารี วงศ์สุภา","name_en":"Phra Preechawoot Wongsupa","rank":"","temple":"วัดศรีบุญเรือง อำเภอเมืองเชียงราย จังหวัดเชียงราย","country":"ไทย"},{"id":110,"name_th":"พระครูวิมลชยาทร จารุโรจน์เนาวรัตน์","name_en":"Phrakhruwimonchayathon Charurotnaowarat","rank":"พระครูวิมลชยาทร","temple":"วัดราษฎร์ศรัทธาราม อำเภอหันคา จังหวัดชัยนาท","country":"ไทย"},{"id":111,"name_th":"พระครูปลัดมงคลวรวัฒน์ ขนฺติธมฺโม โพธิศรี","name_en":"Phrakhrupaladmongkolwarawat Phosi","rank":"พระครูปลัดมงคลวรวัฒน์","temple":"วัดเนินงาม อำเภอเนินงาม จังหวัดชัยนาท","country":"ไทย"},{"id":112,"name_th":"พระครูสิริสันตยากร กาบขิง สุปญฺโญ","name_en":"Phrakhrusirisantayakorn kapkhing","rank":"พระครูสิริสันตยากร","temple":"วัดสันติคีรี อำเภอพญาเม็งราย จังหวัดเชียงราย","country":"ไทย"},{"id":113,"name_th":"พระครูสังวราภิรักษ์ ลอยสายออ สํวโร","name_en":"Phrakhrusangvaraphirak Loysaior","rank":"พระครูสังวราภิรักษ์","temple":"วัดหลังร้อย อำเภอเมืองนครราชสีมา จังหวัดนครราชสีมา","country":"ไทย"},{"id":114,"name_th":"พระครูสมุห์ประยูร วรสันเที๊ยะ ขนฺติโก","name_en":"Phrakhrusamu Prayoon Vornsantiah","rank":"พระครูสมุห์ประยูร ขนฺติโก","temple":"วัดราษฎร์บำรุง อำเภอเมืองนครราชสีมา จังหวัดนครราชสีมา","country":"ไทย"},{"id":115,"name_th":"พระครูสังฆพิพัฒน์ จิตจะโปะ จิตฺตคุตฺโต","name_en":"Phrakhrusangkhaphiphat Chitchapo","rank":"พระครูสังฆพิพัฒน์","temple":"วัดม่วง อำเภอเมืองนครราชสีมา จังหวัดนครราชสีมา","country":"ไทย"},{"id":116,"name_th":"พระครูปริยัติรัตนวิชัย พูนสีมา ชิตมาโร","name_en":"Phrakhrupairyatrattanawichaai Poonsima","rank":"พระครูปริยัติรัตนวิชัย","temple":"วัดสระแก้ว อำเภอเมืองนครราชสีมา จังหวัดนครราชสีมา","country":"ไทย"},{"id":117,"name_th":"พระครูเกษมปริยัตยาทร กันทาส้ม คุณวีโร","name_en":"Phrakhrukasempariyattayatorn Kuntasom","rank":"พระครูเกษมปริยัตยาทร","temple":"วัดโกมุทพุทธรังสี เขตทวีวัฒนา กรุงเทพฯ","country":"ไทย"},{"id":118,"name_th":"พระครูศรีรัตนากร แทนคำ ปญฺญาสุโข","name_en":"Phrakhrusrirattanakon Haenkham","rank":"พระครูศรีรัตนากร","temple":"วัดพระแก้ว อำเภอเมืองเชียงราย จังหวัดเชียงราย","country":"ไทย"},{"id":119,"name_th":"พระครูสมุห์นวัตถกรณ์ อินชุม อริยเมธี","name_en":"Phrakhrusamu Nawatthakon Inchum","rank":"พระครูบัณฑิตวราภิมณฑ์","temple":"วัดดงหนองเป็ด อำเภอเมืองเชียงราย จังหวัดเชียงราย","country":"ไทย"},{"id":120,"name_th":"พระปลัดเซ็งกิม กตสิทฺโท","name_en":"Chuah Seng Kim","rank":"พระปลัดเซ็งกิม กตสิทฺโท","temple":"วัดพระธาตุดอยตุง จังหวัดเชียงราย","country":"ไทย"},{"id":121,"name_th":"พระชลอ เยสอ วชิรญาโณ","name_en":"Phra Chalo Yeso","rank":"พระชลอ วชิรญาโณ","temple":"วัดสันสลิด อำเภอเวียงชัย จังหวัดเชียงราย","country":"ไทย"},{"id":122,"name_th":"พระครูศรีพิพิธธำรง เลี้ยงถนอม อธิจิตฺโต","name_en":"Phrakhrusripiphitdhamrong Liangthanom","rank":"พระครูศรีพิพิธธำรง","temple":"วัดพระธาตุคู่บุญ อำเภอเมืองเชียงราย จังหวัดเชียงราย","country":"ไทย"},{"id":123,"name_th":"คุณอรณิชชา ลภัตสิริกุล","name_en":"Miss Ornicha Lapatsirikul","rank":"","temple":"ธรรมวิหาร ฮันโนเวอร์","country":"เยอรมนี"},{"id":124,"name_th":"พระมหาสังวรญ์ เทศนำ สํวรญาโณ","name_en":"Phramaha Sangworn Tesnum","rank":"พระมหาสังวรญ์ เทศนำ","temple":"พุทธวิหาร กรุงเบอร์ลิน","country":"เยอรมนี"},{"id":125,"name_th":"พระมหาพยอม สุพิศ สุทสฺสโน","name_en":"Phramaha Payom Supis","rank":"พระโพธิคุณวิเทศ","temple":"วัดพุทธวิหาร กรุงเบอร์ลิน","country":"เยอรมนี"},{"id":126,"name_th":"ธีรวัฒน์  ฉายา ธีรพโล","name_en":"PHRAKHRUSATHON SANTIWAT","rank":"พระครูสาทรสันติวัฒน์","temple":"วัดพุทธภาวนาเวสเตอร์โรส","country":"สวีเดน"},{"id":127,"name_th":"น.ส.ฐิติรัตน์  แซ่โง้ว","name_en":"Titirat    Saengow","rank":"ไม่มี","temple":"ศรีนครินทร์วราราม  สวิตเซอร์แลนด์","country":"สวิสเซอร์แลนด์"},{"id":128,"name_th":"พระมหาณัฐวุฒิ เวชวิชัย ญาณวุฑฺฒธีโร","name_en":"Phramaha Nattawut wetwichai","rank":"","temple":"ศรีครินทรวราราม","country":"สวิตเซอร์แลนด์"},{"id":129,"name_th":"พระมหาสุริยันต์ วิสุทฺธิชโย","name_en":"PHRAMAHA SURIYAN KESSIRI","rank":"พระครูปริยัติรัตนวิเทศ","temple":"พระธรรมกายบอร์คโด","country":"ฝรั่งเศส"},{"id":130,"name_th":"พระมหาสุวรรณ ศรีวัง ,ญาณธโร","name_en":"Phramaha Suwan SRIWANG","rank":"","temple":"วัดมหาพุทธารามกรุงปารีส","country":"ฝรั่งเศส"},{"id":131,"name_th":"พระชัชวาลย์  สุรินทร์   ,ปญฺญาธโร","name_en":"Phra Chatchawan SURIN","rank":"พระครูไพโรจน์ภาวนาวิเทศ วิ.","temple":"วัดมหาพุทธารามกรุงปารีส","country":"ฝรั่งเศส"},{"id":132,"name_th":"พระครูสังฆรักษ์กิตติศักดิ์ อภิวฑฺฒโน","name_en":"PhrakhrusangkharakKittisak Suanwan","rank":"พระครูสังฆรักษ์","temple":"วัดพุทธเมตตา วาร์บวร์ก เยอรมนี","country":"เยอรมนี"},{"id":133,"name_th":"พระมหาวิทยา นางวงค์","name_en":"Ph.m.wittaya Nangwong","rank":"พระมหา","temple":"วัดพุทธธรรม ออสเตรีย","country":"ออสเตรีย"},{"id":134,"name_th":"พระธีระวิทย์ ธีรวิชฺโช นามสกุล บุญยัง","name_en":"Phra Teerawit Boonyang","rank":"พระครูวิเทศบุญญากร","temple":"วัดพระธรรมกายชวาร์ซวัลด์","country":"เยอรมนี"},{"id":135,"name_th":"พระโกเมนทร์ โฆสธมฺโม (พนุมรัมย์)","name_en":"Phra Komen Ghosadhammo (Phanoomram)","rank":"พระครูปลัดโกเมนทร์ โฆสธมฺโม","temple":"วัดพุทธนันทาราม","country":"เยอรมนี"},{"id":136,"name_th":"ประนอม บอร์ธ","name_en":"Pranom borth","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":137,"name_th":"วรรณา สตรอมเมเยอร์","name_en":"Wanna Stromeyer","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":138,"name_th":"สายัณห์ พ่อค้า","name_en":"Saiyan Phorkha","rank":"","temple":"วัดไทยออสเตรียธรรมาราม","country":"ออสเตรีย"},{"id":139,"name_th":"มาลี คลัมเมอร์","name_en":"Malee klammer","rank":"","temple":"วัดพุทธธรรม","country":"ออสเตรีย"},{"id":140,"name_th":"พัฒ ดรุคเคอชิทซ์","name_en":"Phat Druckeschitz","rank":"","temple":"พุทธธรรม","country":"ออสเตรีย"},{"id":141,"name_th":"วันเพ็ญ พราทเนอร์","name_en":"Wanphen Pratschner","rank":"","temple":"พุทธธรรม","country":"ออสเตรีย"},{"id":142,"name_th":"สรัญญา เอเดอร์","name_en":"Saranya Eder","rank":"","temple":"พุทธธรรม","country":"ออสเตรีย"},{"id":143,"name_th":"ปทุม พุ่มไสว","name_en":"Patoom Pumsawai","rank":"","temple":"พุทธธรรม","country":"ออสเตรีย"},{"id":144,"name_th":"ธีวรังกร เผือกอ่อน","name_en":"phramaha Theewarangkorn Phauk-on","rank":"พระครูศรีวิเทศพุทธิธรรม","temple":"วัดพุทธธรรม เมืองไฟรซิ่ง","country":"เยอรมนี"},{"id":145,"name_th":"พระมหาไพโรจน์ โรจนธัมโม","name_en":"PHRAMAHA PAIROJ ROJANADHAMMO","rank":"","temple":"โรจนกรเยอรมนี","country":"เยอรมนี"},{"id":146,"name_th":"พระพิเชษฐ์  ปุญฺญเชฎโฐ","name_en":"PHRA PHICHET PUNYACHETTO","rank":"","temple":"วัดมหาพุทธาราม","country":"ฝรั่งเศส"},{"id":147,"name_th":"พระสำรวจ กมโล","name_en":"Phra Samruat Kamonram","rank":"พระราชวชิรศาสนวิเทศ","temple":"วัดไทยนอร์เวย์","country":"นอร์เวย์"},{"id":148,"name_th":"พระครูปลัดพิชิตชัย ญาณวีโร","name_en":"PHRA Pichitchai Miphimol","rank":"","temple":"วัดไทยนอร์เวย์","country":"นอร์เวย์"},{"id":149,"name_th":"พระสมฤทธิ์ สุรารักษ์ (จนฺทาโภ)","name_en":"Phra Somrit Surarak (Chanthapo)","rank":"","temple":"วัดธรรมชัยมงคล","country":"เยอรมนี"},{"id":150,"name_th":"ศาสตราจาย์ ดร.อุทิส ศิริวรรณ","name_en":"MR.UTHIT SIRIWAN","rank":"","temple":"วัดราชโอรสาราม(คณะ อ.อุทิส)","country":"ไทย"},{"id":151,"name_th":"ศาสตราจารย์ ดร.โชติกา รามบุตร","name_en":"MRS.CHOTIKA RAMABUT","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":152,"name_th":"ศาสตราจารย์ ดร.ณัฏฐ์ชุดา ฐิติกัลยาณ์","name_en":"Dr. Nattuda Thitikalyan","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":153,"name_th":"นางฐนิวรรณ กุลมงคล","name_en":"Mrs.Thaniwan Koonmongkon","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":154,"name_th":"นางนภานา เพ็ดเนการ์","name_en":"Mrs.Naphana Pednekar","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":155,"name_th":"นางสาธิตา โสรัสสะ","name_en":"Miss Satida Sorassa","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":156,"name_th":"นางสาวสมปรารถนา นาวงษ์","name_en":"Miss Somprathana Nawong","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":157,"name_th":"คุณพิชิต สุขไผ่ตา","name_en":"Mr.Pichit Sukpaita","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":158,"name_th":"นายสมเกียรติ จันทร์ดี","name_en":"Mr.Somkiat Chandee","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":159,"name_th":"นางสาวทัศน์สุมา สมานมิตร","name_en":"Miss Thatsuma Samanmit","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":160,"name_th":"นางสาวยุวดี ซุ้มกอทอง","name_en":"Miss Yuwadee Soomkothong","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":161,"name_th":"นางสาวภัทรพรรณ พหลภักดิ์","name_en":"Miss Pattaraphan Paholpak","rank":"","temple":"วัดราชโอรสาราม","country":"ไทย"},{"id":162,"name_th":"พระกิตติวงศ์วิเทศ","name_en":"PHRAKITTIWONGVIDES","rank":"","temple":"วัดราชโอรสาราม คณะหลวงพ่อใหญ่","country":"ไทย"},{"id":163,"name_th":"พระราชวชิรดิลก","name_en":"PHRARAJWACHIRADILOK","rank":"","temple":"วัดราชโอรสาราม คณะหลวงพ่อใหญ่","country":"ไทย"},{"id":164,"name_th":"พระมหาสมัย ขันประมาณ","name_en":"PHRAMAHA SAMAI KHANPRAMAN","rank":"","temple":"วัดราชโอรสาราม คณะหลวงพ่อใหญ่","country":"ไทย"},{"id":165,"name_th":"พระพรหมวชิรปัญญาจารย์","name_en":"PHRAPHROMVAJIRAPANYAJARN","rank":"","temple":"วัดราชโอรสาราม คณะหลวงพ่อใหญ่","country":"ไทย"},{"id":166,"name_th":"พระครูอาทรปริยัติสุทธี","name_en":"PHRAKHRUATONPARIYATISUTHI THUMSING SUTHIRO","rank":"พระครูสัญญาบัตร","temple":"หลวงพ่อสดธรรมกายาราม ดำเนินสะดวก ราชบุรี","country":"ไทย  สมทบคณะพระราชวชิรานสิฐ"},{"id":167,"name_th":"นางประยูร ผลเจริญ","name_en":"Mrs.Prayoon Phonjaroen","rank":"","temple":"วัดไทยธรรมาราม","country":"เบลเยี่ยม"},{"id":168,"name_th":"นางกาญจนี สุวรรณอัมพร","name_en":"Mrs.Kanjanee Suwan-Ampron","rank":"","temple":"วัดไทยธรรมามราม","country":"เบลเยี่ยม"},{"id":169,"name_th":"พระมหาวัฒนา สมบูรณ์ ยสวฑฺฒโน","name_en":"Watana Somboon","rank":"พระครูสิริธรรมประทีป","temple":"พุทธาราม ลีดส์","country":"อังกฤษ"},{"id":170,"name_th":"พระพฤษภา นามสกุล เพียงผล ฉายา สิริวฺฑฒโก","name_en":"Phra Pruetsapha Phiangphon Siriwaththako","rank":"","temple":"ไทยธรรมาราม","country":"เบลเยียม"},{"id":171,"name_th":"พระครูสุธรรมธีรานุยุต เสาร์ศิริ","name_en":"Phrakhrusuthamthiranuyut  Saosiri","rank":"พระครูสุธรรมธีรานุยุต","temple":"วัดจันทึก ต.จันทึก อ.ปากช่อง จ.นครราชสีมา","country":"ไทย"},{"id":172,"name_th":"พระครูสาทรสันติวัฒน์","name_en":"Phrakhrusathonsantiwat","rank":"พระครูสาทรสันติวัฒน์","temple":"วัดพุทธภาวนา เวสเตอร์โรส","country":"สวีเดน"},{"id":173,"name_th":"พระครูสมุห์ กิตติพร กิตฺติวโร (มูลชีพ)","name_en":"PHRAKHRUSAMU KITTIPHORN MOONCHEEP","rank":"","temple":"วัดพระธาตุดอยสุเทพ เยอรมนี","country":"เยอรมนี"},{"id":174,"name_th":"พระมหาพงษ์ถาวร รตนงฺกุโร (ดวงแก้ว)","name_en":"PHRAMAHA PONGTHAWORN DUANGKAEW","rank":"","temple":"วัดพระธาตุดอยสุเทพ เยอรมนี","country":"เยอรมนี"},{"id":175,"name_th":"พระมหาจักริน จกฺกิสฺสโร (อิศรา)","name_en":"PHRAMAHA JAKARIN ISARA","rank":"","temple":"วัดพระธาตุดอยสุเทพ เยอรมนี","country":"เยอรมนี"},{"id":176,"name_th":"พระศตายุ ธมฺมทีโป (มเหศักดิ์เดชา)","name_en":"PHRA SATAYU MAHESAKDECHA","rank":"","temple":"วัดพระธาตุดอยสุเทพ เยอรมนี","country":"เยอรมนี"},{"id":177,"name_th":"พระครูใบฎีกา ชัยธัช อินฺทรปญฺโญ (ชมกลิ่น)","name_en":"PHRA CHAITACH CHOMKLIN","rank":"","temple":"วัดพระธาตุดอยสุเทพ เยอรมนี","country":"เยอรมนี"},{"id":178,"name_th":"พระมหาเจษฎา รักษาทรัพย์ (ธนปาโล)","name_en":"Phramaha Jessada Raksasrup (Thanapalo)","rank":"","temple":"วัดพุทธโสธร อุปซอลา สวีเดน","country":"สวีเดน"},{"id":179,"name_th":"พระมหาทวีศิลป์ ธมฺมรํสี (อาจทวีกุล)","name_en":"PHRAMAHA TAWEESIN ARTTAWEEKUL","rank":"","temple":"วัดพระศรีสรรเพชญ์ สหราชอาณาจักร","country":"อังกฤษ"},{"id":180,"name_th":"พระมหาสุทธิศักดิ์ ชยปาโล (พงษ์พัง)","name_en":"PHRAMAHA SUTTISAK PHONGPHANG","rank":"","temple":"วัดพระศรีสรรเพชญ์ สหราชอาณาจักร","country":"อังกฤษ"},{"id":181,"name_th":"พระคันธทรัพย์ เตชธมฺโม (สินธุวัฒน์)","name_en":"PHRA KHANTHASAP SINTHUWAT","rank":"","temple":"วัดพระศรีสรรเพชญ์ สหราชอาณาจักร","country":"อังกฤษ"},{"id":182,"name_th":"พระมหาบุญทิน เทาศิริ ปุญฺญธโช","name_en":"Phramaha Boonthin Taosiri","rank":"พระวิเทศปุญญาภรณ์","temple":"วัดพุทธาราม แวร์มเดอ สวีเดน","country":"สวีเดน"},{"id":183,"name_th":"พระมหาชัชวาลย์  แก้วกิ่ง  โชติปญฺโญ ดร.","name_en":"Phramaha Chadchavan Kaewking","rank":"พระครูสิริโชติปัญญาวัฒน์","temple":"ธรรมะศรัทธาราม เมืองพีร์มาเซน เยอรมนี","country":"เยอรมนี"},{"id":184,"name_th":"เหลา ปัญญาสิริ","name_en":"Laow Panyasiri","rank":"พระราชวิเทศปัญญาคุณ","temple":"พุทธปทีป ลอนดอน","country":"UK"},{"id":185,"name_th":"พระสมชาย โพยมรัตนสิน วรธมฺโม","name_en":"Phrasomchai Poyomratanasin Varathummo","rank":"—","temple":"พุทธปทีป ลอนดอน","country":"Uk"},{"id":186,"name_th":"พระสีวัย โชติปัญโญ (วงษ์ฝั้น)","name_en":"Phra Seewai Wongfan","rank":"","temple":"วัดธรรมวิสุทธาราม","country":"เยอรมนี"},{"id":187,"name_th":"พระมหาจำเริญ เทพมา","name_en":"PHRAMAHA CHAMREON TEPMA","rank":"พระวิเทศวัชรวิมล","temple":"วัดพุทธวิหาร อัมสเตอร์ดัม","country":"เนเธอร์แลนด์"},{"id":188,"name_th":"พระมหากิตติศักดิ์  วรกิตฺติธาตา","name_en":"PHRAMAHA KITTISAK CHAROENSINRISUK","rank":"","temple":"วัดพุทธวิหาร อัมสเตอร์ดัม","country":"เนเธอร์แลนด์"},{"id":189,"name_th":"พระพิภพ แพงท้าว","name_en":"Phra Phiphop-Phangtaw","rank":"","temple":"วัดสมเด็จ เยอรมนี","country":"เยอรมนี"},{"id":190,"name_th":"อุไร ชาล","name_en":"Frau Urai Schaal","rank":"","temple":"วัดสมเด็จ เยอรมนี","country":"เยอรมนี"},{"id":191,"name_th":"นาง อำไพ เกรนซ์","name_en":"Frau Ampai Grenz","rank":"","temple":"วัดสมเด็จ เยอรมนี","country":"เยอรมนี"},{"id":192,"name_th":"นาง นวลศรี ฮิบเก้น","name_en":"Frau Nualsri Hippgen","rank":"","temple":"วัดสมเด็จ เยอรมนี","country":"เยอรมนี"},{"id":193,"name_th":"นางบุญทร พุฟไฟย์","name_en":"Mrs Bunthorn Buffay","rank":"","temple":"วัดสมเด็จ เยอรมนี","country":"เยอรมนี"},{"id":194,"name_th":"นาย หนึ่งบุรุษ โห้เพ็ชร","name_en":"Mr.Nungburud Hopad","rank":"","temple":"วัดสมเด็จ เยอรมนี","country":"เยอรมนี"},{"id":195,"name_th":"นาง สำเนียง เทสกา","name_en":"MRS.Samniang Teska","rank":"","temple":"วัดสมเด็จ เยอรมนี","country":"เยอรมนี"},{"id":196,"name_th":"พระมหากิตติภณ กิตติเมธี (ทูคำมี)","name_en":"PHRAMAHA GITTIPHON TOOKAHMMEE","rank":"","temple":"วัดพุทธโสธร อุปซอลา","country":"สวีเดน"},{"id":197,"name_th":"พระปลัดอนุวัฒน์ ภูริปัญโญ (โสภา)","name_en":"Phra Anuwat Sopa","rank":"","temple":"วัดธรรมมังคลาราม","country":"สวีเดน"},{"id":198,"name_th":"นางวิมลทิพย์ ตอนรัมย์","name_en":"Mrs. Vimontip Tornrum","rank":"","temple":"วัดพุทธบูชา","country":"ฝรั่งเศส"},{"id":199,"name_th":"นางฉวีวรรณ โมรัตน์","name_en":"Mrs.Chaweewan Morat","rank":"","temple":"วัดพุทธบูชา","country":"ฝรั่งเศส"},{"id":200,"name_th":"พระวรยศ พูลสุข","name_en":"Phra Worrayot Poolsook","rank":"","temple":"วัดบุญญาราม","country":"เยอรมนี"}]
+
+
+let allMonks = [], checkedInToday = new Set(), allAdminData = [], currentFilter = 'all', currentView = 'checkin'
+const today = new Date().toISOString().split('T')[0]
+
+document.getElementById('dateDisplay').textContent =
+  new Date().toLocaleDateString('th-TH', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
+
+function loadSheet() {
+  allMonks = MONKS_DATA.filter(m => m.name_th && !['ไม่มา','ยกเลิก'].some(x => m.name_th.includes(x) || m.rank.includes(x)))
+}
+
+
+async function loadCheckins() {
+  const {data}=await db.from('checkins').select('name_th').eq('date',today)
+  if(data) data.forEach(r=>checkedInToday.add(r.name_th))
+}
+
+async function init() {
+  try {
+    loadSheet()
+    await loadCheckins()
+    document.getElementById('results').innerHTML=`<div class="hint"><div class="hint-icon">🔍</div>พิมพ์ชื่อ ฉายา วัด หรือประเทศเพื่อค้นหา</div>`
+  } catch {
+    document.getElementById('results').innerHTML=`<div class="hint"><div class="hint-icon">⚠️</div>ไม่สามารถโหลดข้อมูลได้<br>กรุณาตรวจสอบการเชื่อมต่อ</div>`
+  }
+}
+
+const IC_TEMPLE=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`
+const IC_GLOBE=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`
+
+function search(q){
+  const lq=q.toLowerCase().trim(); if(!lq) return []
+  return allMonks.filter(m=>m.name_th.toLowerCase().includes(lq)||m.name_en.toLowerCase().includes(lq)||m.rank.toLowerCase().includes(lq)||m.temple.toLowerCase().includes(lq)||m.country.toLowerCase().includes(lq))
+}
+
+function renderResults(monks){
+  const el=document.getElementById('results')
+  if(!monks.length){el.innerHTML='<div class="no-result">🔎 ไม่พบชื่อที่ค้นหา<br><span style="font-size:12px;color:#cbd5e1">ลองพิมพ์ฉายา วัด หรือประเทศ</span></div>';return}
+  el.innerHTML=monks.map(m=>{
+    const checked=checkedInToday.has(m.name_th)
+    return `<div class="card">
+      <div class="card-row">
+        <div class="card-dot"></div>
+        <div class="card-body">
+          <div class="card-name">${m.name_th}</div>
+          ${m.name_en?`<div class="card-name-en">${m.name_en}</div>`:''}
+          ${m.rank&&m.rank!=='ไม่มี'?`<span class="card-rank">${m.rank}</span>`:''}
+          ${(m.temple||m.country)?`<div class="card-meta">
+            ${m.temple?`<span class="meta-tag">${IC_TEMPLE}${m.temple}</span>`:''}
+            ${m.country?`<span class="meta-tag">${IC_GLOBE}${m.country}</span>`:''}
+          </div>`:''}
+          ${checked
+            ?`<div class="checked-badge"><span class="check-dot">✓</span>เช็คอินแล้ววันนี้</div>`
+            :`<button class="btn-checkin" onclick="checkIn(${m.id},this)">ลงทะเบียน เข้าร่วมประชุม · ${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short'})}</button>`}
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+async function checkIn(id,btn){
+  const monk=allMonks.find(m=>m.id===id); if(!monk) return
+  if(checkedInToday.has(monk.name_th)){showToast('เช็คอินแล้ววันนี้ครับ');return}
+  btn.disabled=true; btn.textContent='กำลังบันทึก...'
+  const{error}=await db.from('checkins').insert({name_th:monk.name_th,name_en:monk.name_en,rank:monk.rank,temple:monk.temple,country:monk.country,date:today})
+  if(error){btn.disabled=false;btn.textContent='ลงทะเบียน เข้าร่วมประชุม · '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short'});showToast(error.code==='23505'?'เช็คอินชื่อนี้ไปแล้ววันนี้':'เกิดข้อผิดพลาด กรุณาลองใหม่');return}
+  checkedInToday.add(monk.name_th); showToast('เช็คอินสำเร็จแล้ว ✓')
+  renderResults(search(document.getElementById('searchInput').value))
+}
+
+function clearSearch(){
+  const i=document.getElementById('searchInput'); i.value=''
+  document.getElementById('clearBtn').style.display='none'
+  document.getElementById('results').innerHTML=`<div class="hint"><div class="hint-icon">🔍</div>พิมพ์ชื่อ ฉายา วัด หรือประเทศเพื่อค้นหา</div>`
+  i.focus()
+}
+
+document.getElementById('searchInput').addEventListener('input',e=>{
+  const q=e.target.value
+  document.getElementById('clearBtn').style.display=q?'block':'none'
+  if(!q.trim()){document.getElementById('results').innerHTML=`<div class="hint"><div class="hint-icon">🔍</div>พิมพ์ชื่อ ฉายา วัด หรือประเทศเพื่อค้นหา</div>`;return}
+  renderResults(search(q))
+})
+
+function openPassModal(){const i=document.getElementById('passInput');i.value='';i.setAttribute('autocomplete','new-password');document.getElementById('passErr').textContent='';document.getElementById('passOverlay').classList.add('show');setTimeout(()=>i.focus(),150)}
+function closePassModal(){document.getElementById('passOverlay').classList.remove('show')}
+function submitPass(){
+  if(document.getElementById('passInput').value===ADMIN_PASS){closePassModal();showAdmin()}
+  else{document.getElementById('passErr').textContent='รหัสผ่านไม่ถูกต้อง';document.getElementById('passInput').value='';document.getElementById('passInput').focus()}
+}
+
+function showAdmin(){document.getElementById('checkinPage').style.display='none';document.getElementById('adminPanel').style.display='block';loadAdmin()}
+function showCheckin(){document.getElementById('adminPanel').style.display='none';document.getElementById('checkinPage').style.display='block'}
+
+async function loadAdmin(){
+  document.getElementById('adminSearch').value=''
+  document.getElementById('adminClearBtn').style.display='none'
+  document.getElementById('adminList').innerHTML='<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>'
+  const{data,error}=await db.from('checkins').select('*').order('checked_in_at',{ascending:false})
+  if(error||!data){document.getElementById('adminList').innerHTML='<div class="empty">ไม่สามารถโหลดข้อมูลได้</div>';return}
+  allAdminData=data
+  document.getElementById('statTotal').textContent=data.length
+  document.getElementById('stat19').textContent=data.filter(r=>r.date==='2026-06-19').length
+  document.getElementById('stat20').textContent=data.filter(r=>r.date==='2026-06-20').length
+  document.getElementById('stat21').textContent=data.filter(r=>r.date==='2026-06-21').length
+  renderAdmin()
+}
+
+function switchView(view){
+  currentView=view
+  document.getElementById('tabCheckin').classList.toggle('active', view==='checkin')
+  document.getElementById('tabAbsent').classList.toggle('active', view==='absent')
+  renderAdmin()
+}
+
+function renderAdmin(){
+  const DAY={'2026-06-19':'19 มิ.ย.','2026-06-20':'20 มิ.ย.','2026-06-21':'21 มิ.ย.'}
+  const el=document.getElementById('adminList')
+
+  const adminQ=(document.getElementById('adminSearch')?.value||'').toLowerCase().trim()
+  document.getElementById('adminClearBtn').style.display=adminQ?'block':'none'
+
+  if(currentView==='absent'){
+    const checkedNames=new Set(
+      (currentFilter==='all'?allAdminData:allAdminData.filter(r=>r.date===currentFilter)).map(r=>r.name_th)
+    )
+    const absent=allMonks.filter(m=>!checkedNames.has(m.name_th)&&(!adminQ||m.name_th.toLowerCase().includes(adminQ)||m.temple.toLowerCase().includes(adminQ)||m.country.toLowerCase().includes(adminQ)))
+    document.getElementById('countLabel').textContent=`ยังไม่มา ${absent.length} รูป`
+    if(!absent.length){el.innerHTML='<div class="empty">✅ ทุกรูปเช็คอินครบแล้ว</div>';return}
+    el.innerHTML=absent.map((m,i)=>`
+      <div class="row-item">
+        <div class="row-left">
+          <div class="row-num">${i+1}</div>
+          <div class="row-info">
+            <div class="row-name">${m.name_th}</div>
+            <div class="row-sub">${[m.temple,m.country].filter(Boolean).join(' · ')}</div>
+            ${m.rank&&m.rank!=='ไม่มี'&&m.rank!=='-'?`<span class="absent-badge">${m.rank}</span>`:''}
+          </div>
+        </div>
+      </div>`).join('')
+    return
+  }
+
+  const filtered=(currentFilter==='all'?allAdminData:allAdminData.filter(r=>r.date===currentFilter)).filter(r=>!adminQ||r.name_th.toLowerCase().includes(adminQ)||(r.temple||'').toLowerCase().includes(adminQ)||(r.country||'').toLowerCase().includes(adminQ))
+  document.getElementById('countLabel').textContent=`เช็คอินแล้ว ${filtered.length} รูป`
+  if(!filtered.length){el.innerHTML='<div class="empty">ยังไม่มีการเช็คอิน</div>';return}
+  el.innerHTML=filtered.map((r,i)=>`
+    <div class="row-item">
+      <div class="row-left">
+        <div class="row-num">${i+1}</div>
+        <div class="row-info">
+          <div class="row-name">${r.name_th}</div>
+          <div class="row-sub">${[r.rank,r.temple,r.country].filter(Boolean).join(' · ')}</div>
+        </div>
+      </div>
+      <div class="row-right">
+        <div class="row-day">${DAY[r.date]||r.date}</div>
+        <div class="row-time">${new Date(r.checked_in_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</div>
+        <button class="del-btn" onclick="deleteCheckin('${r.id}')">ลบ</button>
+      </div>
+    </div>`).join('')
+}
+
+function filterDate(date,btn){
+  currentFilter=date
+  document.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('active'))
+  btn.classList.add('active'); renderAdmin()
+}
+
+async function deleteCheckin(id){
+  const row=allAdminData.find(r=>r.id===id); if(!row) return
+  if(!confirm(`ลบการเช็คอินของ "${row.name_th}" ใช่หรือไม่?`)) return
+  const{error}=await db.from('checkins').delete().eq('id',id)
+  if(error){showToast('เกิดข้อผิดพลาด ลบไม่สำเร็จ');return}
+  showToast('ลบรายการแล้ว')
+  checkedInToday.delete(row.name_th)
+  await loadAdmin()
+}
+
+async function exportExcel(){
+  const adminQ=(document.getElementById('adminSearch')?.value||'').toLowerCase().trim()
+  const checkedData=(currentFilter==='all'?allAdminData:allAdminData.filter(r=>r.date===currentFilter)).filter(r=>!adminQ||r.name_th.toLowerCase().includes(adminQ)||(r.temple||'').toLowerCase().includes(adminQ)||(r.country||'').toLowerCase().includes(adminQ))
+  const checkedNames=new Set(allAdminData.map(r=>r.name_th))
+  const absentData=allMonks.filter(m=>!checkedNames.has(m.name_th)&&(!adminQ||m.name_th.toLowerCase().includes(adminQ)||(m.temple||'').toLowerCase().includes(adminQ)||(m.country||'').toLowerCase().includes(adminQ)))
+
+  const wb=new ExcelJS.Workbook()
+  wb.creator='เช็คชื่อประชุม'
+
+  const DAY={'2026-06-19':'19 มิ.ย.','2026-06-20':'20 มิ.ย.','2026-06-21':'21 มิ.ย.'}
+  const label=currentFilter==='all'?'ทั้งหมด':DAY[currentFilter]||currentFilter
+
+  function styleHeader(row, color){
+    row.eachCell(cell=>{
+      cell.font={bold:true,color:{argb:'FFFFFFFF'},size:11}
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:color}}
+      cell.alignment={vertical:'middle',horizontal:'center',wrapText:true}
+      cell.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}
+    })
+    row.height=22
+  }
+
+  function styleRow(row, i){
+    row.eachCell(cell=>{
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:i%2===0?'FFEFF6FF':'FFFFFFFF'}}
+      cell.alignment={vertical:'middle',wrapText:true}
+      cell.border={top:{style:'thin',color:{argb:'FFCBD5E1'}},left:{style:'thin',color:{argb:'FFCBD5E1'}},bottom:{style:'thin',color:{argb:'FFCBD5E1'}},right:{style:'thin',color:{argb:'FFCBD5E1'}}}
+    })
+    row.height=20
+  }
+
+  // === Sheet 1: เช็คอินแล้ว ===
+  const ws1=wb.addWorksheet('✅ เช็คอินแล้ว')
+  ws1.columns=[
+    {key:'no',width:7},{key:'name_th',width:38},{key:'name_en',width:36},
+    {key:'rank',width:32},{key:'temple',width:34},{key:'country',width:16},
+    {key:'date',width:13},{key:'time',width:13}
+  ]
+  const h1=ws1.addRow(['ลำดับ','ชื่อ-ฉายา (ไทย)','ชื่อ (อังกฤษ)','สมณศักดิ์','วัด','ประเทศ','วันที่','เวลาเช็คอิน'])
+  styleHeader(h1,'FF2563EB')
+  checkedData.forEach((r,i)=>{
+    const row=ws1.addRow([i+1,r.name_th,r.name_en||'',r.rank||'',r.temple||'',r.country||'',r.date,new Date(r.checked_in_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})])
+    styleRow(row,i)
+    row.height=32
+  })
+  ws1.views=[{state:'frozen',ySplit:1}]
+
+  // === Sheet 2: ยังไม่มา ===
+  const ws2=wb.addWorksheet('⏳ ยังไม่มา')
+  ws2.columns=[
+    {key:'no',width:7},{key:'name_th',width:38},{key:'name_en',width:36},
+    {key:'rank',width:32},{key:'temple',width:34},{key:'country',width:16}
+  ]
+  const h2=ws2.addRow(['ลำดับ','ชื่อ-ฉายา (ไทย)','ชื่อ (อังกฤษ)','สมณศักดิ์','วัด','ประเทศ'])
+  styleHeader(h2,'FFDC2626')
+  absentData.forEach((m,i)=>{
+    const row=ws2.addRow([i+1,m.name_th,m.name_en||'',m.rank||'',m.temple||'',m.country||''])
+    styleRow(row,i)
+    row.height=32
+  })
+  ws2.views=[{state:'frozen',ySplit:1}]
+
+  const buf=await wb.xlsx.writeBuffer()
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
+  const a=document.createElement('a')
+  a.href=URL.createObjectURL(blob)
+  a.download=`รายงานเช็คชื่อ_${label}.xlsx`
+  a.click()
+  showToast('Export สำเร็จแล้ว ✓')
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show')
+  setTimeout(()=>t.classList.remove('show'),2500)
+}
+
+init()
+</script>
+</body>
+</html>
