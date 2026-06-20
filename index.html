@@ -585,11 +585,12 @@ function loadSheet() {
 
 
 async function loadCheckins() {
-  const {data}=await db.from('checkins').select('name_th,name_en,rank,temple,country').eq('date',today)
-  if(data){
-    const existingNames=new Set(allMonks.map(m=>m.name_th))
-    data.forEach(r=>{
-      checkedInToday.add(r.name_th)
+  const existingNames=new Set(allMonks.map(m=>m.name_th))
+  // โหลดทุกรายชื่อที่เคยถูกเพิ่มใหม่ (ไม่อยู่ใน MONKS_DATA) เพื่อให้ค้นหาได้ทุกวัน
+  const {data:allData}=await db.from('checkins').select('name_th,name_en,rank,temple,country,date')
+  if(allData){
+    allData.forEach(r=>{
+      if(r.date===today) checkedInToday.add(r.name_th)
       if(!existingNames.has(r.name_th)){
         allMonks.push({id:Date.now()+Math.random(),name_th:r.name_th,name_en:r.name_en||'',rank:r.rank||'',temple:r.temple||'',country:r.country||''})
         existingNames.add(r.name_th)
